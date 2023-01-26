@@ -1,0 +1,254 @@
+---
+title: "descriptive data"
+author: "Matthew Feinberg"
+date: '2022-12-08'
+output: html_document
+---
+
+```{r results='hide', message=FALSE, echo=FALSE}
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(sqldf)
+library(ggplot2)
+library(GGally)
+library(reshape2)
+library(MASS)
+library(mclust)
+```
+
+# Import Data
+```{r}
+free_prosp_full_dataset <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")
+free_prosp_data <- sqldf("SELECT Region as region,
+              Country as country,
+              `Freedom rank 2021` as freedom_rank,
+              `Freedom category 2021` as freedom_category, 
+              `Freedom score 2021` as freedom_score,
+              `Economic Freedom score 2021` as economic_freedom_score,
+              `Political Freedom score 2021` as political_freedom_score,
+              `Legal Freedom score 2021` as legal_freedom_score,
+              `Prosperity rank 2021` as prosperity_rank,
+              `Prosperity category 2021` as prosperity_category,
+              `Prosperity score 2021` as prosperity_score,
+              `Income score 2021` as income_score,
+              `Environment score 2021` as environment_score,
+              `Minority Rights  score 2021` as minority_rights_score,
+              `Health score 2021` as health_score,
+              `Happiness score 2021` as happiness_score
+       FROM free_prosp_full_dataset;
+      ")
+free_prosp_historic_dataset <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = 2, na = "no data")
+free_prosp_historic <- sqldf("SELECT Region as region,
+              Country as country,
+              `Freedom score 2021` as freedom_score_2021,
+              `Freedom score 2006` as freedom_score_2006,
+              `Economic Freedom score 2021` as economic_freedom_score_2021,
+              `Economic Freedom score 2006` as economic_freedom_score_2006,
+              `Political Freedom score 2021` as political_freedom_score_2021,
+              `Political Freedom score 2006` as political_freedom_score_2006,
+              `Legal Freedom score 2021` as legal_freedom_score_2021,
+              `Legal Freedom score 2006` as legal_freedom_score_2006,
+              `Prosperity score 2021` as prosperity_score_2021,
+              `Prosperity score 2006` as prosperity_score_2006,
+              `Income score 2021` as income_score_2021,
+              `Income score 2006` as income_score_2006,
+              `Environment score 2021` as environment_score_2021,
+              `Environment score 2006` as environment_score_2006,
+              `Minority Rights  score 2021` as minority_rights_score_2021,
+              `Minority Rights  score 2006` as minority_rights_score_2006,
+              `Health score 2021` as health_score_2021,
+              `Health score 2006` as health_score_2006,
+              `Happiness score 2021` as happiness_score_2021,
+              `Happiness score 2006` as happiness_score_2006
+       FROM free_prosp_historic_dataset;
+      ")
+```
+
+# General Overview
+```{r}
+freedom_category_factor <- factor(free_prosp_data$freedom_category, levels = c("Unfree", "Mostly Unfree", "Mostly Free", "Free"))
+prosperity_category_factor <- factor(free_prosp_data$prosperity_category, levels = c("Unprosperous", "Mostly Unprosperous", "Mostly Prosperous", "Prosperous"))
+selected <- free_prosp_data %>% dplyr::select(freedom_score, prosperity_score)
+summary(selected)
+apply(selected, 2, sd)
+summary(freedom_category_factor)
+summary(prosperity_category_factor)
+table(free_prosp_data$region)
+overalldescriptive <- describe(selected)
+View(overalldescriptive)
+```
+
+```{r}
+ggplot(free_prosp_data) +
+  aes(x = freedom_score, y = prosperity_score, color = region) +
+  geom_point() +
+  scale_color_hue() +
+  ggtitle("Freedom vs Prosperity (2021 Overall Group Scores)") +
+  xlab("Freedom Score") + ylab("Prosperity Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(xlim = c(0, 100), ylim = c(0, 100))
+
+```
+
+# Freedom Statistics
+```{r}
+freedomdescriptivelist <- by(free_prosp_data$freedom_score, free_prosp_data$region, describe)
+freedomdescriptive <- do.call("rbind", freedomdescriptivelist)
+view(freedomdescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = freedom_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Freedom Scores Grouped by Region") +
+  xlab("Region") + ylab("Freedom Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+
+
+ggplot(free_prosp_data) +
+  aes(x = freedom_category_factor, fill = region) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~region) +
+  scale_x_discrete(labels = c("UF", "MUF", "MF", "F")) +
+  ggtitle("Freedom Category Breakdown Grouped by Region") +
+  xlab("Freedom") + ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Freedom Subcategory Statistics
+```{r}
+economicdescriptivelist <- by(free_prosp_data$economic_freedom_score, free_prosp_data$region, describe)
+economicdescriptive <- do.call("rbind", economicdescriptivelist)
+view(economicdescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = economic_freedom_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Economic Freedom Scores") +
+  xlab("Region") + ylab("Economic Freedom Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+politicaldescriptivelist <- by(free_prosp_data$political_freedom_score, free_prosp_data$region, describe)
+politicaldescriptive <- do.call("rbind", politicaldescriptivelist)
+view(politicaldescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = political_freedom_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Political Freedom Scores") +
+  xlab("Region") + ylab("Political Freedom Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+legaldescriptivelist <- by(free_prosp_data$legal_freedom_score, free_prosp_data$region, describe)
+legaldescriptive <- do.call("rbind", legaldescriptivelist)
+view(legaldescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = legal_freedom_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Legal Freedom Scores") +
+  xlab("Region") + ylab("Legal Freedom Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+```
+
+
+
+
+
+
+# Prosperity Statistics
+```{r}
+prosperitydescriptivelist <- by(free_prosp_data$prosperity_score, free_prosp_data$region, describe)
+prosperitydescriptive <- do.call("rbind", prosperitydescriptivelist)
+view(prosperitydescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = prosperity_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Prosperity Scores Grouped by Region") +
+  xlab("Region") + ylab("Prosperity Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+ggplot(free_prosp_data) +
+  aes(x = prosperity_category_factor, fill = region) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~region) +
+ scale_x_discrete(labels = c("UP", "MUP", "MP", "P")) +
+  ggtitle("Prosperity Category Breakdown Grouped by Region") +
+  xlab("Prosperity") + ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Prosperity Category Statistics
+```{r}
+incomedescriptivelist <- by(free_prosp_data$income_score, free_prosp_data$region, describe)
+incomedescriptive <- do.call("rbind", incomedescriptivelist)
+view(incomedescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = income_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Income Scores") +
+  xlab("Region") + ylab("Income Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+environmentdescriptivelist <- by(free_prosp_data$environment_score, free_prosp_data$region, describe)
+environmentdescriptive <- do.call("rbind", environmentdescriptivelist)
+view(environmentdescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = environment_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Environment Scores") +
+  xlab("Region") + ylab("Environment Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+minoritydescriptivelist <- by(free_prosp_data$minority_rights_score, free_prosp_data$region, describe)
+minoritydescriptive <- do.call("rbind", minoritydescriptivelist)
+view(minoritydescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = minority_rights_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Minority Rights Scores") +
+  xlab("Region") + ylab("Minority Rights Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+healthdescriptivelist <- by(free_prosp_data$health_score, free_prosp_data$region, describe)
+healthdescriptive <- do.call("rbind", healthdescriptivelist)
+view(healthdescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = health_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Health Scores") +
+  xlab("Region") + ylab("Health Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+
+happinessdescriptivelist <- by(free_prosp_data$happiness_score, free_prosp_data$region, describe)
+happinessdescriptive <- do.call("rbind", happinessdescriptivelist)
+view(happinessdescriptive)
+ggplot(free_prosp_data) +
+  aes(x = region, y = happiness_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Happiness Scores") +
+  xlab("Region") + ylab("Happiness Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+```

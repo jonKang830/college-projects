@@ -1,0 +1,65 @@
+---
+title: "Interaction Model"
+author: "Henry Yin"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(WDI)
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+library(lattice)
+library(stats)
+```
+
+This section attempts to differentiate freedom score from a country's endowment or environmental factors to assess prosperity. Freedom comes from how the people rule themselves, where as endowment is given to a country in a natural way. Thus, an unfree country with vast amount of endowment might also be able to reach prosperity. In this sense, we chose per capita area as our measurement of endowment since the scarcity of resource and unlimited needs often hinder the path to prosperity. Greater per capita area could obviously lead toward less competition and easier allocation. In the meantime, we also realize that per capita area cannot fully and accurately describe endowment but we believe this is the best indicator we are able to develop and utilize at the moment.
+### Data
+```{r}
+#World Bank
+data_w = WDI(indicator = c("AG.LND.TOTL.K2", "SP.POP.TOTL"))
+names(data_w)[names(data_w) == "AG.LND.TOTL.K2"] = "land_area"
+names(data_w)[names(data_w) == "SP.POP.TOTL"] = "population"
+
+data_a = read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", na = "NA")
+```
+
+### Clean data
+```{r}
+per_capita = data_w %>% dplyr::filter(year == 2020) %>% select(-iso2c) %>% mutate(per_capita_area = land_area / population)
+
+clean_a = data_a %>% dplyr::select(Country, ISO3, "Freedom category 2021", "Freedom score 2021", "Prosperity category 2021", "Prosperity score 2021")
+
+# Join data
+ready_data = clean_a %>% left_join(per_capita, by = c("ISO3" = "iso3c")) %>% select(-country, -year, land_area, population) %>% filter(is.na(per_capita_area) == FALSE)
+```
+
+### Ploting 
+```{r}
+ggplot(ready_data, aes(per_capita_area * 100, `Freedom score 2021`)) +
+  geom_point(aes(color = `Prosperity category 2021`)) +
+  labs(title = "Compare Freedom-Driven Prosperity with Endowment") +
+  xlab("Per Capita Area") +
+  ylab("Freedom Score 2021")
+
+xyplot(`Freedom score 2021` ~ per_capita_area * 100 | factor(`Prosperity category 2021`), data = ready_data)
+```
+The first chart plots freedom score with per capita area, or in other words, a country's endowment, and points are classified based on its prosperity category. It's shown that most of the points have relatively low per capita area but still many have them are prosperous or mostly prosperous. In fact, for the several points that have better endowment but relatively unfree status, they are more likely to be unprosperous. Following on the freedom score, clearly, freer countries enjory more prosperousity.
+
+The second charts seperate the categories and show a even clearer trend that prosperity has little to do with a country's endowment but very much with freedom score.
+
+### Analyzing
+```{r}
+model = lm(`Prosperity score 2021` ~ `Freedom score 2021` * I(per_capita_area * 100), data = ready_data)
+summary(model)
+step(model, direction = "backward")
+```
+The initial model include quantitative measures of freedom, per capita area, and their interaction term. From both the p-value and backward selection based on AIC, it can be seen that only freedom score is statistically significant and its has the largest values of coefficients. This conclusion quantitatively justifies the above charts that freedom is the main factor that drives prosperity, despite a country's endowment.
+
+
+

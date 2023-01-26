@@ -1,0 +1,217 @@
+---
+title: "heatmap"
+output: html_document
+author: "Muhan Zhang"
+date: "2022-12-06"
+---
+
+```{r results='hide', message=FALSE, echo=FALSE}
+library("readxl")
+```
+
+## import data
+```{r}
+freedom <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Freedom Index time")
+economic <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Economic Freedom time")
+property <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Property Rights time")
+trade <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Trade Freedom time")
+investment <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Investment Freedom time")
+women <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Women's Economic freedom time")
+political <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Political Freedom time")
+constraint <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Constraints on Government time")
+rights <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Political Rights time")
+civil <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Civil Liberties time")
+legal <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Legal Freedom time")
+judicial <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Judicial Effectiveness time")
+judiciary <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Efficient Judiciary time")
+justice <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Civil Justice time")
+criminal <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Criminal Justice time")
+integrity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Government Integrity time")
+corruption <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Perceptions of Corruption time")
+absenceCorruption <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Absence of Corruption time")
+disclosure <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Public Disclosure time")
+capacity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "State Capacity time")
+security <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Order and Security time")
+regulatory <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Regulatory Effectivness time")
+prosperity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Prosperity Index time")
+income <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Income time")
+environment <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Environment time")
+minority <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Minority Rights time")
+minority[minority == "no data"] <- NA
+health <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Health time")
+happiness <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Happiness time")
+```
+
+## Processing
+```{r}
+data <- data.frame("Freedom Score 2021"=freedom[1:174, "Freedom Score 2021"])
+# data["Freedom Score 2021"] <- freedom[1:174, "Freedom Score 2021"]
+data["Economic Freedom score 2021"] <- economic[1:174, "Economic Freedom score 2021"]
+data["Property Rights score 2021"] <- property[1:174, "Property Rights score 2021"]
+data["Trade Freedom score 2021"] <- trade[1:174, "Trade Freedom score 2021"]
+data["Investment Freedom score 2021"] <- investment[1:174, "Investment Freedom score 2021"]
+data["Women's Economic Freedom score 2021"] <- women[1:174, "Women's Economic Freedom score 2021"]
+data["Political Freedom score 2021"] <- political[1:174, "Political Freedom score 2021"]
+data["Constrainsts on Government score 2021"] <- constraint[1:174, "Constrainsts on Government score 2021"]
+data["Political Rights score 2021"] <- rights[1:174, "Political Rights score 2021"]
+data["Civil liberties score 2021"] <- civil[1:174, "Civil liberties score 2021"]
+data["Legal Freedom score 2021"] <- legal[1:174, "Legal Freedom score 2021"]
+data["Judicial Effectiveness score 2021"] <- judicial[1:174, "Judicial Effectiveness score 2021"]
+data["Efficient Judiciary score 2021"] <- judiciary[1:174, "Efficient Judiciary score 2021"]
+data["Civil Justice score 2021"] <- justice[1:174, "Civil Justice score 2021"]
+data["Criminal Justice score 2021"] <- criminal[1:174, "Criminal Justice score 2021"]
+data["Government Integrity score 2021"] <- integrity[1:174, "Government Integrity score 2021"]
+data["Perceptions of Corruption score 2021"] <- corruption[1:174, "Perceptions of Corruption score 2021"]
+data["Absence of Corruption  score 2021"] <- absenceCorruption[1:174, "Absence of Corruption  score 2021"]
+data["Public Disclosure score 2021"] <- disclosure[1:174, "Public Disclosure score 2021"]
+data["State Capacity score 2021"] <- capacity[1:174, "State Capacity score 2021"]
+data["Order and Security score 2021"] <- security[1:174, "Order and Security score 2021"]
+data["Regulatory Effectivness score 2021"] <- regulatory[1:174, "Regulatory Effectivness score 2021"]
+data["Prosperity Index 2021"] <- prosperity[1:174, "Prosperity Index 2021"]
+data["GNI per capita 2021 score"] <- income[1:174, "GNI per capita 2021 score"]
+data["Environment score 2021"] <- environment[1:174, "Environment score 2021"]
+data["Minority Rights 2021 score"] <- minority[1:174, "Minority Rights 2021 score"]
+data["Health 2021 score"] <- health[1:174, "Health 2021 score"]
+data["Happiness score 2021"] <- happiness[1:174, "Happiness score 2021"]
+```
+
+This is to transform the data into numeric values 
+```{R}
+sapply(data, is.numeric)
+```
+
+Now we calculate and visualize the covariance and correlation matrices 
+```{R}
+matrix = cov(data, use="complete.obs")
+
+matrix_ = cor(data, use="complete.obs")
+
+matrix
+matrix_
+```
+## Correlation of all variables in 2021 and 15 year changes
+
+Since we notice that covariances are not normalized to a resonable degree, we decide to use correlation for the rest of our analysis. 
+```{R}
+heatmap(matrix_, Colv = NA, Rowv = NA, scale = "none", cexRow=0.5, cexCol = 0.4, main = "Correlation Matrix of all variables")
+```
+Next, we also want to capture correlations in changes. We first process the difference of 15 years in all variables, calculate correlation values, and  visualize our results with heatmap. 
+
+```{R}
+#change in 15 years
+dataGraph <- data.frame("Freedom"=freedom[1:174, "Freedom Score 2021"]-freedom[1:174, "Freedom Score 2006"])
+dataGraph["Economic Freedom"] <- economic[1:174, "Economic Freedom score 2021"] - economic[1:174, "Economic Freedom score 2006"]
+dataGraph["Property Rights"] <- property[1:174, "Property Rights score 2021"] - property[1:174, "Property Rights score 2006"]
+dataGraph["Trade Freedom"] <- trade[1:174, "Trade Freedom score 2021"] - trade[1:174, "Trade Freedom score 2006"]
+dataGraph["Investment Freedom"] <- investment[1:174, "Investment Freedom score 2021"] - investment[1:174, "Investment Freedom score 2006"]
+dataGraph["Women's Economic Freedom"] <- women[1:174, "Women's Economic Freedom score 2021"] - women[1:174, "Women's Economic Freedom score 2006"]
+dataGraph["Political Freedom"] <- political[1:174, "Political Freedom score 2021"] - political[1:174, "Political Freedom score 2006"]
+dataGraph["Constrainsts on Government"] <- constraint[1:174, "Constrainsts on Government score 2021"] - constraint[1:174, "Constrainsts on Government score 2006"]
+dataGraph["Political Rights"] <- rights[1:174, "Political Rights score 2021"] - rights[1:174, "Political Rights score 2006"]
+dataGraph["Civil liberties"] <- civil[1:174, "Civil liberties score 2021"] - civil[1:174, "Civil liberties score 2006"]
+dataGraph["Legal Freedom"] <- legal[1:174, "Legal Freedom score 2021"] - legal[1:174, "Legal Freedom score 2006"]
+dataGraph["Judicial Effectiveness"] <- judicial[1:174, "Judicial Effectiveness score 2021"] - judicial[1:174, "Judicial Effectiveness score 2006"]
+dataGraph["Efficient Judiciary"] <- judiciary[1:174, "Efficient Judiciary score 2021"] - judiciary[1:174, "Efficient Judiciary score 2006"]
+dataGraph["Civil Justice"] <- justice[1:174, "Civil Justice score 2021"] - justice[1:174, "Civil Justice score 2006"]
+dataGraph["Criminal Justice"] <- criminal[1:174, "Criminal Justice score 2021"] - criminal[1:174, "Criminal Justice score 2006"]
+dataGraph["Government Integrity"] <- integrity[1:174, "Government Integrity score 2021"] - integrity[1:174, "Government Integrity score 2006"]
+dataGraph["Perceptions of Corruption"] <- corruption[1:174, "Perceptions of Corruption score 2021"] - corruption[1:174, "Perceptions of Corruption score 2006"]
+dataGraph["Absence of Corruption"] <- absenceCorruption[1:174, "Absence of Corruption  score 2021"] - absenceCorruption[1:174, "Absence of Corruption score 2006"]
+dataGraph["Public Disclosure"] <- disclosure[1:174, "Public Disclosure score 2021"] - disclosure[1:174, "Public Disclosure score 2006"]
+dataGraph["State Capacity"] <- capacity[1:174, "State Capacity score 2021"] - capacity[1:174, "State Capacity score 2006"]
+dataGraph["Order and Security"] <- security[1:174, "Order and Security score 2021"] - security[1:174, "Order and Security score 2006"]
+dataGraph["Regulatory Effectivness"] <- regulatory[1:174, "Regulatory Effectivness score 2021"] - regulatory[1:174, "Regulatory Effectivness score 2006"]
+dataGraph["Prosperity Index"] <- prosperity[1:174, "Prosperity Index 2021"] - prosperity[1:174, "Prosperity Index 2006"]
+dataGraph["GNI per capita"] <- income[1:174, "GNI per capita 2021 score"] - income[1:174, "GNI per capita 2006 score"]
+dataGraph["Environment"] <- environment[1:174, "Environment score 2021"] - environment[1:174, "Environment score 2006"]
+dataGraph["Minority Rights"] <- minority[1:174, "Minority Rights 2021 score"] - minority[1:174, "Minority Rights 2006 score"]
+dataGraph["Health"] <- health[1:174, "Health 2021 score"] - health[1:174, "Health 2006 score"]
+dataGraph["Happiness"] <- happiness[1:174, "Happiness score 2021"] - happiness[1:174, "Happiness score 2006"]
+
+matrix_graph = cor(dataGraph, use="complete.obs")
+
+#jpeg(file="change15_years.jpg")
+heatmap(matrix_graph, Colv = NA, Rowv = NA, scale = "none", cexRow=0.5, cexCol = 0.4, main = "Correlation Matrix of all variables in 15 years")
+#dev.off()
+```
+From this, it is very straightforward that changes are of little utility because the correlations are much prominent. In light of this finding, we only focus on correlation of static years. Specifically, we focus on the year 2021, as it is most recent.In visualizing the graphs better, we change it to seperate graphs based on categories of freedom and prosperity 
+
+## Economic correlation
+```{R}
+EconomicGraph <- data.frame(economic[1:174, "Economic Freedom score 2021"])
+EconomicGraph["Property Rights"] <- property[1:174, "Property Rights score 2021"]
+EconomicGraph["Trade Freedom"] <- trade[1:174, "Trade Freedom score 2021"]
+EconomicGraph["Investment Freedom"] <- investment[1:174, "Investment Freedom score 2021"]
+EconomicGraph["Women's Economic Freedom"] <- women[1:174, "Women's Economic Freedom score 2021"]
+
+EconomicMatrix = cor(EconomicGraph, use="complete.obs")
+#png("Correlation Matrix of Economic Freedom Increase in 15 years.png", width = 20, height = 20, units = 'in', res = 1200)
+heatmap(EconomicMatrix, Colv = NA, Rowv = NA, scale = "none", cexRow=1, cexCol = 1, main = "Correlation Matrix of Economic Freedom in 2021")
+#dev.off()
+```
+
+
+## Political correlation
+```{R}
+PoliticalGraph <- data.frame(political[1:174, "Political Freedom score 2021"])
+PoliticalGraph["Constrainsts on Government"] <- constraint[1:174, "Constrainsts on Government score 2021"]
+PoliticalGraph["Political Rights"] <- rights[1:174, "Political Rights score 2021"]
+PoliticalGraph["Civil liberties"] <- civil[1:174, "Civil liberties score 2021"]
+
+
+PoliticalMatrix = cor(PoliticalGraph, use="complete.obs")
+#png("Correlation Matrix of Economic Freedom Increase in 15 years.png", width = 20, height = 20, units = 'in', res = 1200)
+heatmap(PoliticalMatrix, Colv = NA, Rowv = NA, scale = "none", cexRow=1, cexCol = 1, main = "Correlation Matrix of Political Freedom in 2021")
+#dev.off()
+```
+
+## Leagl correlation
+```{R}
+LegalGraph <- data.frame(legal[1:174, "Legal Freedom score 2021"])
+LegalGraph["Judicial Effectiveness"] <- judicial[1:174, "Judicial Effectiveness score 2021"]
+LegalGraph["Efficient Judiciary"] <- judiciary[1:174, "Efficient Judiciary score 2021"]
+LegalGraph["Civil Justice"] <- justice[1:174, "Civil Justice score 2021"]
+LegalGraph["Criminal Justice"] <- criminal[1:174, "Criminal Justice score 2021"]
+LegalGraph["Government Integrity"] <- integrity[1:174, "Government Integrity score 2021"]
+LegalGraph["Perceptions of Corruption"] <- corruption[1:174, "Perceptions of Corruption score 2021"]
+LegalGraph["Absence of Corruption"] <- absenceCorruption[1:174, "Absence of Corruption  score 2021"]
+LegalGraph["Public Disclosure"] <- disclosure[1:174, "Public Disclosure score 2021"]
+LegalGraph["State Capacity"] <- capacity[1:174, "State Capacity score 2021"]
+LegalGraph["Order and Security"] <- security[1:174, "Order and Security score 2021"]
+LegalGraph["Regulatory Effectivness"] <- regulatory[1:174, "Regulatory Effectivness score 2021"]
+
+
+LegalMatrix = cor(LegalGraph, use="complete.obs")
+#png("Correlation Matrix of Economic Freedom Increase in 15 years.png", width = 20, height = 20, units = 'in', res = 1200)
+heatmap(LegalMatrix, Colv = NA, Rowv = NA, scale = "none", cexRow=1, cexCol = 1, main = "Correlation Matrix of Legal Freedom in 2021")
+#dev.off()
+```
+
+
+## Prosperity correlation
+```{R}
+ProsperityGraph <- data.frame(prosperity[1:174, "Prosperity Index 2021"])
+ProsperityGraph["GNI per capita"] <- income[1:174, "GNI per capita 2021 score"]
+ProsperityGraph["Environment"] <- environment[1:174, "Environment score 2021"]
+ProsperityGraph["Minority Rights"] <- minority[1:174, "Minority Rights 2021 score"]
+ProsperityGraph["Health"] <- health[1:174, "Health 2021 score"]
+ProsperityGraph["Happiness"] <- happiness[1:174, "Happiness score 2021"]
+
+ProsperityMatrix = cor(ProsperityGraph, use="complete.obs")
+#png("Correlation Matrix of Economic Freedom Increase in 15 years.png", width = 20, height = 20, units = 'in', res = 1200)
+heatmap(ProsperityMatrix, Colv = NA, Rowv = NA, scale = "none", cexRow=1, cexCol = 1, main = "Correlation Matrix of Prosperity in 2021")
+#dev.off()
+```
+
+## Correlation of freedom and prosperity 
+```{R}
+Overall<- data.frame(prosperity[1:174, "Prosperity Index 2021"])
+Overall["Legal Freedom"] <- legal[1:174, "Legal Freedom score 2021"]
+Overall["Political Freedom"] <- political[1:174, "Political Freedom score 2021"]
+Overall["Economic Freedom"] <- economic[1:174, "Economic Freedom score 2021"]
+
+OverallMatrix = cor(Overall, use="complete.obs")
+#png("Correlation Matrix of Economic Freedom Increase in 15 years.png", width = 20, height = 20, units = 'in', res = 1200)
+heatmap(OverallMatrix, Colv = NA, Rowv = NA, scale = "none", cexRow=1, cexCol = 1, main = "Correlation Matrix of Prosperity with Freedom in 2021")
+#dev.off()
+```

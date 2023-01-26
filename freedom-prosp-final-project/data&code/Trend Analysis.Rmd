@@ -1,0 +1,336 @@
+---
+title: "Trend Analysis"
+author: "Henry Yin"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+This section follows up on the previous analysis and looks closer into countries that experienced largest change in freedom score and prosperity score. We get raw, continuous data from the World Bank and plot it with year. The purpose is to see trends movement as these countries went through big changes. The countries chosen here are Venezuela, Hungary, China, and USA. 
+
+Venezuela is chosen due to the fact that it is one of the countries that experienced the biggest change in both freedom and prosperity score. Hungary is chosen because it has one of the biggest changes in freedom score. The European Union and USA are chosen because of their representations of large regions as well as their data richness.
+
+#### Packages
+```{r}
+library(WDI)
+library(tidyr)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+```
+
+#### Fetch Data (Part 1, Freedom)
+```{r}
+# Property rights as raw data for economic freedom
+property_rights = WDI(indicator = c("IC.PRP.DURS", "IC.PRP.PROC", "GC.TAX.YPKG.ZS"), extra = TRUE)
+names(property_rights)[names(property_rights) == "IC.PRP.DURS"] = "register_property_time"
+names(property_rights)[names(property_rights) == "IC.PRP.PROC"] = "register_property_procedure"
+names(property_rights)[names(property_rights) == "GC.TAX.YPKG.ZS"] = "tax"
+
+# Civil liberties as raw data for political freedom
+civil_liberties = WDI(indicator = c("SE.ADT.LITR.ZS", "IQ.CPA.BREG.XQ"), extra = TRUE)
+names(civil_liberties)[names(civil_liberties) == "SE.ADT.LITR.ZS"] = "literacy_rate"
+names(civil_liberties)[names(civil_liberties) == "IQ.CPA.BREG.XQ"] = "business_regulatory_environment"
+
+#Regulatory effectiveness as raw data for legal freedom
+regulatory_effectiveness = WDI(indicator = c("IQ.CPA.PROP.XQ", "IC.LGL.CRED.XQ"), extra = TRUE)
+names(regulatory_effectiveness)[names(regulatory_effectiveness) == "IQ.CPA.PROP.XQ"] = "rule_governance_rating"
+names(regulatory_effectiveness)[names(regulatory_effectiveness) == "IC.LGL.CRED.XQ"] = "legal_rights"
+```
+
+#### Fetch Data (Part 2, Prosperity)
+```{r}
+# Environment raw data
+environment = WDI(indicator = c("EN.ATM.CO2E.PC", "AG.LND.FRST.ZS", "EN.ATM.PM25.MC.M3", "ER.H2O.FWST.ZS"), extra = TRUE)
+names(environment)[names(environment) == "EN.ATM.CO2E.PC"] = "co2_emmision"
+names(environment)[names(environment) == "AG.LND.FRST.ZS"] = "forest_area"
+names(environment)[names(environment) == "EN.ATM.PM25.MC.M3"] = "pm2.5"
+names(environment)[names(environment) == "ER.H2O.FWST.ZS"] = "water_stress"
+
+# Income raw data
+income = WDI(indicator = c("NY.GNP.PCAP.PP.CD", "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS"), extra = TRUE)
+names(income)[names(income) == "NY.GNP.PCAP.PP.CD"] = "gni_capita"
+names(income)[names(income) == "FP.CPI.TOTL.ZG"] = "inflation"
+names(income)[names(income) == "SL.UEM.TOTL.ZS"] = "unemployment"
+
+# Health raw data
+health = WDI(indicator = c("SP.DYN.LE00.IN", "SH.STA.DIAB.ZS"), extra = TRUE)
+names(health)[names(health) == "SP.DYN.LE00.IN"] = "life_expectancy"
+names(health)[names(health) == "SH.STA.DIAB.ZS"] = "diabetes"
+```
+All the raw data we retrieved are from the World Bank, which is done through the WDI package. The indicators chosen are essentially attempting to replicate the basic indicators used in original dataset. The picked indicators for freedom are time and procedures required to register a property, tax rate, literacy rate, business regulatory environment, rule-based governance rating, and legal rights index. The indicators for prosperity are CO2 emission, forest area, PM2.5 air pollution, water stress level, GNI per capita, inflation rate, unemployment rate, life expectancy, and diabetes. A detailed explanation can be found from the citation page in the link to these indicators.
+
+### Case Study1: Venezuela
+#### Cleaning data
+```{r}
+# Filter freedom data for Venezuela
+Venezuela_econ = property_rights %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(econ_score = (register_property_time + register_property_procedure + tax) / 3)
+
+Venezuela_poli = civil_liberties %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(poli_score = (literacy_rate + business_regulatory_environment) / 2)
+
+Venezuela_legal = regulatory_effectiveness %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(legal_score = (rule_governance_rating + legal_rights) / 2)
+
+# Filter prosperity data for Venezuela
+Venezuela_envir = environment %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Venezuela_income = income %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Venezuela_health = health %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+```
+
+#### Time series plotting
+```{r}
+# Freedom
+# Economic freedom
+VF = ggplot(Venezuela_econ, aes(x = year)) +
+  geom_line(aes(y = register_property_time, color = "Register Property Time")) +
+  geom_line(aes(y = register_property_procedure * 5, color = "Register Property Procedure")) +
+  labs(title = "Economic Freedom Trend for Venezuela") +
+  xlab("Year") +
+  ylab("Vebezuela Econ") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+# Political and legal freedom are ignored as too less data points were collected.
+
+# Prosperity
+# Environment
+VE = ggplot(Venezuela_envir, aes(x = year)) +
+  geom_line(aes(y = co2_emmision, color = "CO2 Emmision")) +
+  geom_line(aes(y = forest_area / 10, color = "Forest Area")) +
+  geom_line(aes(y = water_stress, color = "Water Stress")) +
+  labs(title = "Environment Level Measurement") +
+  xlab("Year") +
+  ylab("Environment") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Income
+VI = ggplot(Venezuela_income, aes(x = year)) +
+  geom_line(aes(y = gni_capita / 1000, color = "GNI per Capita, Current $")) +
+  geom_line(aes(y = inflation / 10 , color = "Inflation, Annual %")) +
+  geom_line(aes(y = unemployment, color = "Unemployment, % Total")) +
+  labs(title = "Income Level Measurement") +
+  xlab("Year") +
+  ylab("Income") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Health
+VH = ggplot(Venezuela_health, aes(x = year)) +
+  geom_line(aes(y = life_expectancy, color = "Life Expectancy")) +
+  labs(title = "Health Level Measurement") +
+  xlab("Year") +
+  ylab("Life Expectancy") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+ggarrange(VF, VE, VH, VI, ncol = 2, nrow = 2, widths = c(1.5, 1.5, 1.5, 1.5))
+```
+Venezuela experenced a large negative change in freedom and prosperity scores in the past 15 years. The economic freedom measurement corresponded with these facts as time and procedures required to register a property all went up. At around the turning point, which at about the year of 2009, clearly life expectancy peaked and started to drop. Inflation rate also sky-rocked shortly afterward. Therefore, we saw again from raw data that Venezuela became less prosperous after the country turned unfree.
+
+### Case Study2: Hungary
+#### Cleaning data
+```{r}
+# Filter freedom data for Hungary
+Hungary_econ = property_rights %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Hungary_poli = civil_liberties %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Hungary_legal = regulatory_effectiveness %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+# Filter prosperity data for Hungary
+Hungary_envir = environment %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Hungary_income = income %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Hungary_health = health %>% dplyr::filter(country %in% c("Hungary")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+```
+
+#### Time series plotting
+```{r}
+# Freedom
+# Economic freedom
+HF = ggplot(Hungary_econ, aes(x = year)) +
+  geom_line(aes(y = register_property_time, color = "Register Property Time")) +
+  geom_line(aes(y = tax, color = "Tax Rate")) +
+  labs(title = "Economic Freedom Trend for Hungary") +
+  xlab("Year") +
+  ylab("Hungary Econ") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+# Political and legal freedom are ignored as too less data points were collected.
+
+# Prosperity
+# Environment
+HE = ggplot(Hungary_envir, aes(x = year)) +
+  geom_line(aes(y = co2_emmision * 2, color = "CO2 Emmision")) +
+  geom_line(aes(y = forest_area / 2, color = "Forest Area")) +
+  geom_line(aes(y = water_stress, color = "Water Stress")) +
+  labs(title = "Environment Level Measurement") +
+  xlab("Year") +
+  ylab("Environment")+
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Income
+HI = ggplot(Hungary_income, aes(x = year)) +
+  geom_line(aes(y = gni_capita / 2000, color = "GNI per Capita, Current $")) +
+  geom_line(aes(y = inflation, color = "Inflation, Annual %")) +
+  geom_line(aes(y = unemployment / 2, color = "Unemployment, % Total")) +
+  labs(title = "Income Level Measurement") +
+  xlab("Year") +
+  ylab("Income")+
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Health
+HH = ggplot(Hungary_health, aes(x = year)) +
+  geom_line(aes(y = life_expectancy, color = "Life Expectancy")) +
+  labs(title = "Health Level Measurement") +
+  xlab("Year") +
+  ylab("Life Expectancy")+
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+ggarrange(HF, HE, HH, HI, ncol = 2, nrow = 2, widths = c(1.5, 1.5, 1.5, 1.5))
+```
+Hungary experienced a big positive change in freedom scores and the economic freedom indicators show the same conclusion, both time and procedure required to register a property went down over time. By this, the environment in Hungary was getting better as forest area was increasing, CO2 emission and water stress level were going done. As a result, the life expectancy had gone up and GNI per capita increased fastly and consistently. Inflation and unemployment rate remianed low for a proloned period of time.
+
+### Case Study3: Europe Union
+#### Cleaning data
+```{r}
+# Filter freedom data for EU
+EU_econ = property_rights %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+EU_poli = civil_liberties %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+EU_legal = regulatory_effectiveness %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+# Filter prosperity data for EU
+EU_envir = environment %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+EU_income = income %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+EU_health = health %>% dplyr::filter(country %in% c("European Union")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+```
+
+#### Time series plotting
+```{r}
+# Freedom
+# Economic freedom
+EUF = ggplot(EU_econ, aes(x = year)) +
+  geom_line(aes(y = register_property_time, color = "Register Property Time")) +
+  geom_line(aes(y = register_property_procedure * 10, color = "Register Property Procedure")) +
+  labs(title = "Economic Freedom Trend for EU") +
+  xlab("Year") +
+  ylab("EU Econ") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+# Political and legal freedom are ignored as too less data points were collected.
+
+# Prosperity
+# Environment
+EE = ggplot(EU_envir, aes(x = year)) +
+  geom_line(aes(y = co2_emmision, color = "CO2 Emmision")) +
+  geom_line(aes(y = forest_area / 5, color = "Forest Area")) +
+  geom_line(aes(y = pm2.5 / 2, color = "PM2.5 Air Pollution")) +
+  labs(title = "Environment Level Measurement") +
+  xlab("Year") +
+  ylab("Environment") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Income
+EI = ggplot(EU_income, aes(x = year)) +
+  geom_line(aes(y = gni_capita / 2000, color = "GNI per Capita, Current $")) +
+  geom_line(aes(y = inflation, color = "Inflation, Annual %")) +
+  geom_line(aes(y = unemployment / 2, color = "Unemployment, % Total")) +
+  labs(title = "Income Level Measurement") +
+  xlab("Year") +
+  ylab("Income") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Health
+EH = ggplot(EU_health, aes(x = year)) +
+  geom_line(aes(y = life_expectancy, color = "Life Expectancy")) +
+  labs(title = "Health Level Measurement") +
+  xlab("Year") +
+  ylab("Life Expectancy") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+ggarrange(EUF, EE, EH, EI, ncol = 2, nrow = 2, widths = c(1.5, 1.5, 1.5, 1.5))
+```
+
+### Case Study4: United States
+#### Cleaning data
+```{r}
+# Filter freedom data for US
+US_econ = property_rights %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+US_poli = civil_liberties %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+US_legal = regulatory_effectiveness %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+# Filter prosperity data for US
+US_envir = environment %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+US_income = income %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+US_health = health %>% dplyr::filter(country %in% c("United States")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+```
+
+#### Time series plotting
+```{r}
+# Freedom
+# Economic freedom
+USF = ggplot(US_econ, aes(x = year)) +
+  geom_line(aes(y = register_property_time * 5, color = "Register Property Time")) +
+  geom_line(aes(y = tax, color = "Tax Rate")) +
+  labs(title = "Economic Freedom Trend for US") +
+  xlab("Year") +
+  ylab("US Econ") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+# Political and legal freedom are ignored as too less data points were collected.
+
+# Prosperity
+# Environment
+USE = ggplot(US_envir, aes(x = year)) +
+  geom_line(aes(y = co2_emmision, color = "CO2 Emmision")) +
+  geom_line(aes(y = forest_area / 2, color = "Forest Area")) +
+  geom_line(aes(y = water_stress / 1.5, color = "Water Stress")) +
+  labs(title = "Environment Level Measurement") +
+  xlab("Year") +
+  ylab("Environment") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Income
+USI = ggplot(US_income, aes(x = year)) +
+  geom_line(aes(y = gni_capita / 4000, color = "GNI per Capita, Current $")) +
+  geom_line(aes(y = inflation, color = "Inflation, Annual %")) +
+  geom_line(aes(y = unemployment, color = "Unemployment, % Total")) +
+  labs(title = "Income Level Measurement") +
+  xlab("Year") +
+  ylab("Income") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Health
+USH = ggplot(US_health, aes(x = year)) +
+  geom_line(aes(y = life_expectancy, color = "Life Expectancy")) +
+  labs(title = "Health Level Measurement") +
+  xlab("Year") +
+  ylab("Life Expectancy") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+ggarrange(USF, USE, USH, USI, ncol = 2, nrow = 2, widths = c(1.5, 1.5, 1.5, 1.5))
+```
+The US and EU data shown above don't have clear pattern, but overall it can be concluded that as a region get more free over time, environment, health, and income tend to increase. Due to the lack of data and exact indicators, we are not able to replicate the original freedom and prosperity scores. However, the existing conclusion shows consistent pattern that corresponds and reinforces with our conclusion
+
+

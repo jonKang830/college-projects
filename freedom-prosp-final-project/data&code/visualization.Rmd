@@ -1,0 +1,390 @@
+---
+title: "prosperity_1125"
+author: "Jonathan Kang (jk36)"
+date: '2022-11-25'
+output: html_document
+---
+
+```{r results='hide', message=FALSE, echo=FALSE}
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(sqldf)
+library(ggplot2)
+library(GGally)
+library(reshape2)
+library(MASS)
+library(mclust)
+
+```
+# Import Data
+```{r}
+free_prosp_full_dataset <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")
+
+free_prosp_data <- sqldf("SELECT Region as region,
+              Country as country,
+              `Freedom rank 2021` as freedom_rank,
+              `Freedom category 2021` as freedom_category, 
+              `Freedom score 2021` as freedom_score,
+              `Economic Freedom score 2021` as economic_freedom_score,
+              `Political Freedom score 2021` as political_freedom_score,
+              `Legal Freedom score 2021` as legal_freedom_score,
+              `Prosperity rank 2021` as prosperity_rank,
+              `Prosperity category 2021` as prosperity_cateogry,
+              `Prosperity score 2021` as prosperity_score,
+              `Income score 2021` as income_score,
+              `Environment score 2021` as environment_score,
+              `Minority Rights  score 2021` as minority_rights_score,
+              `Health score 2021` as health_score,
+              `Happiness score 2021` as happiness_score
+       FROM free_prosp_full_dataset;
+      ")
+glimpse(free_prosp_data)
+```
+
+No ties in ranking
+
+# Exploratory Visualizations
+
+## Overall Dataset
+```{r}
+## SCORES
+### Apply log transformation to satisfy normality assumptions
+model_data <- free_prosp_data %>%
+  dplyr::select(region, freedom_score, prosperity_score) %>%
+  mutate(log_prosperity = log(prosperity_score))
+lin_model = lm(freedom_score ~ log_prosperity, model_data)
+
+## Check normalities, outliers, heteroscedasticity
+# plot(model_data$freedom_score, model_data$log_prosperity)
+# plot(lin_model)
+summary(lin_model)
+
+ggplot(data = model_data, aes(x = (freedom_score), y = prosperity_score)) +
+  geom_point(aes(color = region)) + 
+  geom_smooth(method = "glm", se = T) + 
+  labs(title = "Freedom Score v Prosperity Score") + 
+  xlab("Freedom Score") +
+  ylab("Prosperity Score")
+
+
+```
+
+Multiple R-squared:  0.6353
+
+
+
+## Economic
+### Overall
+```{r}
+econ_subs_dataset <- free_prosp_data %>%
+  dplyr::select(region, economic_freedom_score, political_freedom_score, legal_freedom_score)
+ggpairs(data=econ_subs_dataset,1, mapping=aes(color=region))
+ggpairs(data=econ_subs_dataset,2:4, mapping=aes(color=region))
+
+
+```
+
+## Political
+
+```{r, warning = FALSE}
+polit_subs_dataset <- free_prosp_data %>%
+  dplyr::select(region, legal_freedom_score, prosperity_score, income_score, environment_score, minority_rights_score, health_score,happiness_score)
+# ggpairs(data=polit_subs_dataset, mapping=aes(color=region))
+ggpairs(data=polit_subs_dataset,2:4, mapping=aes(color=region))
+ggpairs(data=polit_subs_dataset,5:8, mapping=aes(color=region))
+
+```
+
+### Cluster the groups by using Mixture of Multivariate Gaussian Model 
+
+```{r}
+table(free_prosp_data$prosperity_cateogry, free_prosp_data$freedom_category)
+
+prosp_counts = free_prosp_data %>% dplyr::select(prosperity_cateogry) %>% group_by(prosperity_cateogry) %>% count()
+order = c( "Prosperous", "Mostly Prosperous", "Mostly Unprosperous", "Unprosperous")
+prosp_counts <- prosp_counts %>%
+  mutate(prosperity_cateogry = factor(prosperity_cateogry, levels = order)) %>%
+  arrange(prosperity_cateogry)
+
+ggplot(prosp_counts) +
+  geom_col(aes(x = prosperity_cateogry, y = n))
+
+freedom_counts = free_prosp_data %>% dplyr::select(freedom_category) %>% group_by(freedom_category) %>% count()
+order = c("Free", "Mostly Free", "Mostly Unfree", "Unfree")
+freedom_counts <- freedom_counts %>%
+  mutate(freedom_category = factor(freedom_category, levels = order)) %>%
+  arrange(freedom_category)
+
+ggplot(freedom_counts) +
+  geom_col(aes(x = freedom_category, y = n))
+```
+
+Results show that there is a possibility we can cluster into 2 groups by comparing the scores.  
+We will proceed with an unsupervised learning method of using Gaussian Mixture Models:
+
+```{r}
+colors = c("Freedom" = "Red", "Prosperity" = "Blue")
+ggplot(free_prosp_data) +
+  geom_density(aes(x = freedom_score, color="Freedom")) + 
+  geom_density(aes(x = prosperity_score, color="Prosperity")) +
+  xlab("Score") + 
+  labs(title = "Density plot for Prosperity and Freedom Scores", color = "Legend") +
+  scale_color_manual(values = colors)
+
+# gauss_data <- free_prosp_data %>% select(freedom_score, prosperity_score)
+# plot(mclustBIC(model_data[c(2,3)]))
+gaussian_mix_model = densityMclust(data=model_data[c(2,3)], G=2)
+# summary(gaussian_mix_model)
+plot(gaussian_mix_model, what = "density", type = "hdr", data = model_data[c(2,3)], points.cex = 0.5) +
+title("Mixture Gaussian Clusters Between Freedom and Prosperity")
+```
+
+
+# Correlation Plots for Each Category
+Here, we will look at various correlation plots to determine the most important variable by comparing the correlation coefficients.
+
+## Economic Freedom
+```{r warning=FALSE}
+economic_freedom_scores <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")[c(1,3,7)]
+# Property Rights
+prop_rights_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Property Rights time")
+prop_rights <- prop_rights_full[c(1,4)]
+# Trade Freedom
+trade_free_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Trade Freedom time")
+trade_free <- trade_free_full[c(1,4)]
+# Invesetment Freedom
+invest_free_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Investment Freedom time")
+invest_free <- invest_free_full[c(1,4)]
+# Women's Economic Freedom
+women_econ_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Women's Economic freedom time")
+women_econ <- women_econ_full[c(1,4)]
+
+economic_freedom <- economic_freedom_scores %>%
+  left_join(prop_rights, by="Country") %>%
+  left_join(trade_free, by="Country") %>%
+  left_join(invest_free, by="Country") %>%
+  left_join(women_econ, by="Country")
+
+ggpairs(economic_freedom[c(3:7)])
+
+
+```
+
+## Political Freedom
+```{r}
+political_freedom_scores <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")[c(1,3,8)]
+
+# Constraints on Government
+const_on_govt_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Constraints on Government time")
+const_on_govt <- const_on_govt_full[c(1,4)]
+# Political Rights
+political_rights_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Political Rights time")
+political_rights <- political_rights_full[c(1,4)]
+# Civil Liberties
+civil_liberties_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Civil Liberties time")
+civil_liberties <- civil_liberties_full[c(1,4)]
+
+political_freedom <- political_freedom_scores %>%
+  left_join(const_on_govt, by="Country") %>%
+  left_join(political_rights, by="Country") %>%
+  left_join(civil_liberties, by="Country")
+
+ggpairs(political_freedom,3:6)
+```
+
+
+## Legal Freedom
+
+```{r warning=FALSE}
+legal_freedom_scores <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")[c(1,3,9)]
+
+# Judicial Effectiveness
+judicial_effect_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Judicial Effectiveness time")
+judicial_effect <- judicial_effect_full[c(1,4)]
+# Efficient Judiciary
+eff_jud_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Efficient Judiciary time")
+eff_jud <- eff_jud_full[c(1,4)]
+# Civil Justice
+civil_justice_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Civil Justice time")
+civil_justice <- civil_justice_full[c(1,4)]
+# Criminal Justice
+criminal_justice_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Criminal Justice time")
+criminal_justice <- criminal_justice_full[c(1,4)]
+# Government Integrity
+govt_integrity_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = " Government Integrity time")
+govt_integrity <- govt_integrity_full[c(1,4)]
+# Public Disclosure
+public_disc_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Public Disclosure time")
+public_disc <- public_disc_full[c(1,4)]
+# State Capacity
+state_cap_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "State Capacity time")
+state_cap <- state_cap_full[c(1,4)]
+# Order and Security
+order_security_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Order and Security time")
+order_security <- order_security_full[c(1,4)]
+# Regulatory Effectivness
+reg_effectiveness_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Regulatory Effectivness time")
+reg_effectiveness <- reg_effectiveness_full[c(1,4)]
+
+legal_freedom <- legal_freedom_scores %>%
+  left_join(judicial_effect, by="Country") %>%
+  left_join(eff_jud, by="Country") %>%
+  left_join(civil_justice, by="Country") %>%
+  left_join(criminal_justice, by="Country") %>%
+  left_join(govt_integrity, by="Country") %>%
+  left_join(public_disc, by="Country") %>%
+  left_join(state_cap, by="Country") %>%
+  left_join(order_security, by="Country") %>%
+  left_join(reg_effectiveness, by="Country")
+
+ggpairs(legal_freedom,3:12)
+```
+
+## Prosperity
+```{r}
+prosperity_scores <- (read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")[c(1,3,12:17)])
+
+# ggpairs(prosperity_scores,3:8)
+```
+
+## Overall Freedom Scores
+```{r}
+categories <- free_prosp_full_dataset[c(1,3,6:9,12:17)]
+# ggpairs(categories,3:6)
+```
+
+
+
+# Determine countries with largest changes over 15 years
+## Freedom
+```{r}
+freedom_changes_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = " Freedom Index time")
+
+freedom_changes <- freedom_changes_full %>%
+  mutate(difference = `Freedom Score 2021` - `Freedom Score 2006`) %>%
+  mutate(abs_percentages = abs(`Freedom difference percentage over sample`)) %>%
+  dplyr::select(Country, Region, abs_percentages, difference)
+
+freedom_perc <- freedom_changes %>%
+  arrange(desc(abs_percentages))
+freedom_perc[!duplicated(freedom_perc$Region),]
+
+freedom_diff <- freedom_changes %>%
+  arrange(desc(difference))
+freedom_diff[!duplicated(freedom_diff$Region),]
+```
+## Prosperity
+```{r}
+prosperity_changes_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = " Prosperity Index time")
+
+prosperity_changes <- prosperity_changes_full %>%
+  mutate(percentages = (`Prosperity Index 2021` - `Prosperity Index 2006`) / `Prosperity Index 2006`) %>%
+  mutate(abs_percentages = abs(percentages) * 100) %>%
+  dplyr::select(Country, Region, abs_percentages, `Difference over sample`)
+
+prosperity_perc <- prosperity_changes %>%
+  arrange(desc(abs_percentages)) 
+prosperity_perc[!duplicated(prosperity_perc$Region),]
+
+prosperity_diff <- prosperity_changes %>%
+  arrange(desc(`Difference over sample`))
+prosperity_diff[!duplicated(prosperity_diff$Region),]
+
+```
+
+
+## Categories and their highest correlating factor
+Economic Freedom <- Property Rights
+Political Freedom <- Civil Liberties (or Political Rights)
+Legal Freedom <- Regulatory Effectiveness
+
+Prosperity <- Environment
+Freedom <- Political Freedom
+
+## Countries with largest changes 
+```{r Freedom}
+freedom_perc[!duplicated(freedom_perc$Region),]
+```
+```{r Prosperity}
+prosperity_perc[!duplicated(prosperity_perc$Region),]
+```
+
+## Linear Regression for Important Variables
+
+```{r}
+# Economic Freedom <- Property Rights
+econ_free_time <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Economic Freedom time")[c(1,3,4:7)]
+prop_rights_time <- prop_rights_full[c(1,4:7)]
+  #pivot_longer(!Country)
+econ_free_temp <- econ_free_time %>% left_join(prop_rights_time, by="Country") %>% na.omit()
+ggplot(data=econ_free_temp, aes(x = `Economic Freedom score 2021`, y=`Property Rights score 2021`)) +
+  geom_point(aes(color = Region)) + geom_smooth(method = "glm") + labs(title = "Economic Freedom v Property 2021")
+
+# free_prosp_full_dataset
+
+# Political Freedom <- Civil Liberties (or Political Rights)
+polit_index_time <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Political Freedom time")[c(1,3,4:7)]
+
+civil_lib_time <- civil_liberties_full[c(1,4:7)]
+
+polit_free_time <- polit_index_time %>% left_join(civil_lib_time, by="Country")
+ggplot(data=polit_free_time, aes(x = `Political Freedom score 2021`, y=`Civil liberties score 2021`)) +
+  geom_point(aes(color = Region)) + geom_smooth(method = "glm") + labs(title = "Political Freedom v Civil Liberties 2021")
+
+# Legal Freedom <- Regulatory Effectiveness
+legal_index_time <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    sheet = "Legal Freedom time")[c(1,3,4:7)]
+
+reg_eff_time <- reg_effectiveness_full[c(1,4:7)]
+
+legal_free_time <- legal_index_time %>% left_join(reg_eff_time, by="Country") %>% na.omit
+ggplot(data=legal_free_time, aes(x = `Legal Freedom score 2021`, y=`Regulatory Effectivness score 2021`)) +
+  geom_point(aes(color = Region)) + geom_smooth(method = "glm") + labs(title = "Legal Freedom v Regulatory Effectiveness 2021")
+
+
+```
+
+
+```{r}
+#test
+free_prosp_data %>% filter(country == "Hungary")
+freedom_perc
+freedom_perc %>%
+  filter(Country == "United States of America")
+
+prosperity_perc %>%
+  filter(Country == "United States of America")
+
+freedom_perc %>% dplyr::select(-Country) %>% group_by(Region) %>% summarise(mean_p = mean(abs_percentages), mean_d = mean(difference)) %>%
+  filter(Region == "WE/EU")
+
+
+```
+
+

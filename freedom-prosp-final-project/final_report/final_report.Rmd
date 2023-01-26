@@ -1,0 +1,686 @@
+---
+title: "Final Report on Freedom and Prosperity Research Project"
+author: "Jonathan Kang, Muhan Zhang, Henry Yin, Matthew Feinberg"
+date: "December 8th, 2022"
+output:
+  html_document: default
+  pdf_document: default
+  toc: true
+  toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+Do countries need freedom to achieve prosperity? Are there any relationships between a country's wealth and the level of freedom a country enables for its citizens? As we are seeing massive spikes of gentrification negatively impacting the economy worldwide, we are interested in investigating the scores provided by the Atlantic Council and the underlying relationships behind the categories and factors.[1]
+With our team consisting of members from different majors, we aim to analyze the socio-economic situation of different countries. This is done by investigating the relationship between freedom and prosperity, then developing regression models to extract the most significant variables in determining a country's level of freedom and prosperity.  
+The purpose of this is to understand the most significant factors of freedom in affecting a country's level of prosperity and what may be the most important factors in measuring a country's economic situation and national prosperity.
+
+Our project is based around analysis of the Freedom and Prosperity data set from the Atlantic Council Freedom and Prosperity Center.  
+In this project, we will begin by exploring freedom and prosperity scores and their categorical scores. Next, we will investigate and generate multiple types of learning models to generate one with the best prediction accuracy possible. The correlations and statistical learning models will help provide an insight into the most significant variables we should extract and examine from the raw data from World Bank.
+
+## Project Outline 
+
+1. Conducting basic statistical inferences. 
+2. Conducting exploratory analysis through data visualization and regression models.
+3. Using machine learning models to build prediction model for prosperity score prediction.
+4. Further analysis through case studies and trend analysis. 
+
+### Libraries
+```
+library("readxl")
+library(dplyr)
+library(tidyverse)
+library(sqldf)
+library(ggplot2)
+library(ggpubr)
+library(GGally)
+library(reshape2)
+library(MASS)
+library(mclust)
+library(WDI)
+library(tidyr)
+library(data.table)
+library(lattice)
+library(stats)
+```
+
+## Data Processing 
+
+There are two main sources we will be obtaining our datasets from.  
+
+The first dataset comes from Atlantic Council Freedom and Prosperity Center. This dataset is provided in Excel spreadsheet format with over 20 sheets of data to load. By using readxl library package, we are able to load the data from multiple sheets into the R program. The additional data used in this report come from the World Bank.
+
+Secondly, all the raw data we retrieved are from the World Bank, which is done through the WDI package. The indicators chosen are essentially attempting to replicate the basic indicators used in original dataset. The picked indicators for freedom are time and procedures required to register a property, tax rate, literacy rate, business regulatory environment, rule-based governance rating, and legal rights index. The indicators for prosperity are CO2 emission, forest area, PM2.5 air pollution, water stress level, GNI per capita, inflation rate, unemployment rate, life expectancy, and diabetes. A detailed explanation can be found from the citation page in the link to these indicators.
+
+The codes below are only snapshots of our original codes, which can be found in the "data&code" folder on github.
+
+#### Fetch Data (Part 1, Freedom)
+```
+# Property rights as raw data for economic freedom
+property_rights = WDI(indicator = c("IC.PRP.DURS", "IC.PRP.PROC", "GC.TAX.YPKG.ZS"), extra = TRUE)
+names(property_rights)[names(property_rights) == "IC.PRP.DURS"] = "register_property_time"
+names(property_rights)[names(property_rights) == "IC.PRP.PROC"] = "register_property_procedure"
+names(property_rights)[names(property_rights) == "GC.TAX.YPKG.ZS"] = "tax"
+```
+
+#### Fetch Data (Part 2, Prosperity)
+```
+# Environment raw data
+environment = WDI(indicator = c("EN.ATM.CO2E.PC", "AG.LND.FRST.ZS", "EN.ATM.PM25.MC.M3", "ER.H2O.FWST.ZS"), extra = TRUE)
+names(environment)[names(environment) == "EN.ATM.CO2E.PC"] = "co2_emmision"
+names(environment)[names(environment) == "AG.LND.FRST.ZS"] = "forest_area"
+
+# Income raw data
+income = WDI(indicator = c("NY.GNP.PCAP.PP.CD", "FP.CPI.TOTL.ZG", "SL.UEM.TOTL.ZS"), extra = TRUE)
+names(income)[names(income) == "NY.GNP.PCAP.PP.CD"] = "gni_capita"
+names(income)[names(income) == "FP.CPI.TOTL.ZG"] = "inflation"
+names(income)[names(income) == "SL.UEM.TOTL.ZS"] = "unemployment"
+```
+
+For data retrieved from the World Bank, we mainly looked into four countries: Venezuela, Hungary, European Union, and USA. For the purpose of displaying, we only included one country's cleaning code below.
+
+#### Cleaning data
+```
+# Filter freedom data for Venezuela
+Venezuela_econ = property_rights %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(econ_score = (register_property_time + register_property_procedure + tax) / 3)
+
+Venezuela_poli = civil_liberties %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(poli_score = (literacy_rate + business_regulatory_environment) / 2)
+
+Venezuela_legal = regulatory_effectiveness %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year) %>% mutate(legal_score = (rule_governance_rating + legal_rights) / 2)
+
+# Filter prosperity data for Venezuela
+Venezuela_envir = environment %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Venezuela_income = income %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+
+Venezuela_health = health %>% dplyr::filter(country %in% c("Venezuela, RB")) %>% select(-iso2c, -iso3c, -status, -lastupdated, -region, -longitude, -latitude, -capital, -income, -lending) %>% filter(year >= 2005) %>% arrange(year)
+```
+## Descriptive Statistics
+
+The source of our dataset comes from the website: "https://www.atlanticcouncil.org/in-depth-research-reports/report/do-countries-need-freedom-to-achieve-prosperity/". [1]
+
+This dataset has detailed data on 174 countries of the world, split into 6 geographical regions. The regions, along with their abbreviations, are listed below. We will be using these abbreviations throughout our project reports.
+
+- America: **AME** (32 countries)
+- Asia Pacific: **AP** (28 countries)
+- Europe and Central Asia: **ECA** (18 countries)
+- Middle Eastern Asia: **MENA** (18 countries)
+- Sub Saharan Africa: **SSA** (47 countries)
+- Western Europe: **WE/EU** (31 countries)
+
+All data points in our dataset were recorded multiple times over a 15 year period - during 2006, 2011, 2016, and 2021. This initial summary will cover the data points from 2021.
+
+The data covers freedom and prosperity, with detailed categories for each to give further insight into specifics of each country's freedom and prosperity conditions. The freedom data is split into three categories:
+
+- **Economic Freedom** (4 additional subcategories)
+- **Political Freedom** (3 additional subcategories)
+- **Legal Freedom** (10 additional subcategories)
+
+The prosperity data is split into five categories:
+
+- **Income**
+- **Environment**
+- **Minority Rights**
+- **Health**
+- **Happiness**
+
+Values for the overall categories were calculated by taking the average of all individual subcategory values.
+
+## Initial Analysis
+
+We start by analyzing the overall scores for freedom and prosperity. Here is a graph displaying freedom and prosperity scores for each country, colored by region. This coloring will stay consistent throughout the initial descriptive data analysis.
+
+```
+freedom_category_factor <- factor(free_prosp_data$freedom_category, levels = c("Unfree", "Mostly Unfree", "Mostly Free", "Free"))
+prosperity_category_factor <- factor(free_prosp_data$prosperity_category, levels = c("Unprosperous", "Mostly Unprosperous", "Mostly Prosperous", "Prosperous"))
+selected <- free_prosp_data %>% dplyr::select(freedom_score, prosperity_score)
+summary(selected)
+apply(selected, 2, sd)
+summary(freedom_category_factor)
+summary(prosperity_category_factor)
+table(free_prosp_data$region)
+overalldescriptive <- describe(selected)
+View(overalldescriptive)
+```
+
+![](https://raw.githubusercontent.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/main/img/maf7/overallscores.png){width=75%}
+
+Both freedom and prosperity scores are scaled to values between 0 and 100 inclusive. Here are some basic statistics for both scores (rounded to two decimal places):
+
+**Freedom Score**
+
+- Mean: 56.69
+- Standard Deviaton: 19.94
+- Minimum: 11.61
+- Maximum: 92.45
+
+**Prosperity Score**
+
+- Mean: 51.24
+- Standard Deviation: 18.77
+- Minimum: 15.96
+- Maximum: 97.13
+
+The following is the density plot for Prosperity and Freedom Score:
+
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/density_free_prosp.png?raw=true){width=75%}
+
+### Freedom Score Analysis
+
+We can analyze the freedom scores for each specific region. We can use a box plot to visually see the freedom scores grouped by region.
+
+```
+freedomdescriptivelist <- by(free_prosp_data$freedom_score, free_prosp_data$region, describe)
+freedomdescriptive <- do.call("rbind", freedomdescriptivelist)
+view(freedomdescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = freedom_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Freedom Scores Grouped by Region") +
+  xlab("Region") + ylab("Freedom Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+```
+
+![](https://raw.githubusercontent.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/main/img/maf7/freedomscores.png){width=75%}
+
+Our dataset has an additional categorical variable for freedom scores. The categorical variable is assigned as follows:
+
+- **Unfree (UF)**: freedom score from 0 to 25 (11 countries)
+- **Mostly Unfree (MUF)**: freedom score from 25 to 50 (55 countries)
+- **Mostly Free (MF)**: freedom score from 50 to 75 (67 countries)
+- **Free (F)**: freedom score from 75 to 100 (41 countries)
+
+We can use this categorical variable to generate an additional visualization for country freedom. These bar plots are shown below.
+
+```
+ggplot(free_prosp_data) +
+  aes(x = freedom_category_factor, fill = region) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~region) +
+  scale_x_discrete(labels = c("UF", "MUF", "MF", "F")) +
+  ggtitle("Freedom Category Breakdown Grouped by Region") +
+  xlab("Freedom") + ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+![](https://raw.githubusercontent.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/main/img/maf7/freedomcategorical.png){width=75%}
+
+From these two plots, we can see that the average freedom score is much higher for Western European countries compared to every other region. There are also 28 Western European countries that are Free out of a total of 41 Free countries. 
+
+### Prosperity Score Analysis
+
+Similarly to what we have just done for the freedom scores, we can analyze the prosperity scores by region. We can use a box plot to visually see the prosperity scores grouped by region.
+
+```
+prosperitydescriptivelist <- by(free_prosp_data$prosperity_score, free_prosp_data$region, describe)
+prosperitydescriptive <- do.call("rbind", prosperitydescriptivelist)
+view(prosperitydescriptive)
+
+ggplot(free_prosp_data) +
+  aes(x = region, y = prosperity_score, color = region) +
+  geom_boxplot() +
+  scale_color_hue() +
+  ggtitle("Prosperity Scores Grouped by Region") +
+  xlab("Region") + ylab("Prosperity Score") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0, 100))
+```
+
+![](https://raw.githubusercontent.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/main/img/maf7/prosperityscores.png){width=75%}
+
+Similarly to the freedom scores, our dataset has an additional categorical variable for prosperity scores. The categorical variable is assigned as follows:
+
+- **Unprosperous (UP)**: prosperity score from 0 to 25 (5 countries)
+- **Mostly Unprosperous (MUP)**: prosperity score from 25 to 50 (87 countries)
+- **Mostly Prosperous (MP)**: prosperity score from 50 to 75 (57 countries)
+- **Prosperous (P)**: prosperity score from 75 to 100 (25 countries)
+
+We can use this categorical variable to generate an additional visualization for country prosperity. These bar plots are shown below.
+
+```
+ggplot(free_prosp_data) +
+  aes(x = prosperity_category_factor, fill = region) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~region) +
+ scale_x_discrete(labels = c("UP", "MUP", "MP", "P")) +
+  ggtitle("Prosperity Category Breakdown Grouped by Region") +
+  xlab("Prosperity") + ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+![](https://raw.githubusercontent.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/main/img/maf7/prosperitycategorical.png){width=75%}
+
+Once again, Western European countries have a higher average prosperity score than the other regions. Western European countries also account for 17 of the 25 Prosperous countries.
+
+
+## Exploratory analysis 
+We first consider all variable scores, including categories and subcategories of both freedom and prosperity. We want to first gain a general understanding of the correlation between the variables. In this effort, we calculated the correlation matrix and visualized our result through heat map. In the graph below, the deeper the color, the greater the correlation. 
+
+```
+#We will not be displaying every lines of code because it would be too long...
+library("readxl")
+data <- data.frame("Freedom Score 2021"=freedom[1:174, "Freedom Score 2021"])
+# data["Freedom Score 2021"] <- freedom[1:174, "Freedom Score 2021"]
+data["Economic Freedom score 2021"] <- economic[1:174, "Economic Freedom score 2021"]
+data["Property Rights score 2021"] <- property[1:174, "Property Rights score 2021"]
+data["Trade Freedom score 2021"] <- trade[1:174, "Trade Freedom score 2021"]
+data["Investment Freedom score 2021"] <- investment[1:174, "Investment Freedom score 2021"]
+
+#Calculate the correlation matrix
+matrix_ = cor(data, use="complete.obs")
+
+#Heatmap visualization 
+heatmap(matrix_, Colv = NA, Rowv = NA, scale = "none", cexRow=0.5, cexCol = 0.4, main = "Correlation Matrix of all variables")
+```
+
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/muhan/CorrelationMatrix2021.png?raw=true){width=50%}
+
+
+To get a better understanding of the relationships between each variable for each subcategory, we will look into the correlations.
+
+
+### Correlations and Pairs Plot
+
+Now, we will investigate the correlations between the main categories of Freedom and Prosperity and their subcategories. To do so, we will dive into the specific factors of Freedom and obtain highly correlated variables for later trend analysis.
+
+The following is a sample chunk of code used to look at the correlations for various correlations:
+
+```
+# Economic Freedom Scores
+economic_freedom_scores <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+    na = "no data")[c(1,3,7)]
+# Property Rights
+prop_rights_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Property Rights time")
+prop_rights <- prop_rights_full[c(1,4)]
+# Trade Freedom
+trade_free_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Trade Freedom time")
+trade_free <- trade_free_full[c(1,4)]
+# Invesetment Freedom
+invest_free_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Investment Freedom time")
+invest_free <- invest_free_full[c(1,4)]
+# Women's Economic Freedom
+women_econ_full <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", 
+  sheet = "Women's Economic freedom time")
+women_econ <- women_econ_full[c(1,4)]
+
+economic_freedom <- economic_freedom_scores %>%
+  left_join(prop_rights, by="Country") %>%
+  left_join(trade_free, by="Country") %>%
+  left_join(invest_free, by="Country") %>%
+  left_join(women_econ, by="Country")
+
+ggpairs(economic_freedom[c(3:7)])
+```
+
+We have used read_excel to read different sheets from the excel spreadsheet. The general format will remain the same for the following correlation plots.
+
+The purpose of each pairs plot is to both get a better understanding of the relationship between each variable and extract the factors that can best summarize and represent the large categories for later trend analysis with the raw data to be as accurate as possible.
+
+### Freedom and its Main Categories
+
+![Freedom Correlations](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/freedom_scores.png?raw=true){width=80%}
+
+Comparing to Freedom Score, the order of the correlations from largest to smallest is:
+
+- **Political Freedom** (0.946),  
+- **Legal Freedom** (0.942),  
+- **Economic Freedom** (0.895).  
+
+### Prosperity and its Main Cateogries
+
+![Prosperity Correlations](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/prosperity_scores.png?raw=true){width=80%}
+
+The largest correlation with Prosperity Score is **Environment Score** with correlation coefficient 0.929.
+
+### Freedom Subcategory (1)
+
+![Political Freedom](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/political_freedom.png?raw=true){width=80%}
+
+The two factors with the largest correlations with Political Freedom are:
+
+- **Civil Liberties** (0.981), and    
+- **Political Rights** (0.979).  
+
+### Freedom Subcategory (2)
+
+![Legal Freedom](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/legal_freedom.png?raw=true){width=80%}
+
+There is an abundant amount of variables to work with, but the 3 variables that have highest correlation with Legal Freedom Score are 
+
+- **Regulatory Effectiveness** (0.952),  
+- **Criminal Justice** (0.944), and  
+- **Civil Justice** (0.936).
+
+### Freedom Subcategory (3)
+
+![Economic Freedom](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/economic_freedom.png?raw=true){width=80%}
+
+The two factors with the highest correlation with Economic Freedom are:
+
+- **Property Rights** (0.899), and  
+- **Investment Freedom** (0.896).
+
+Knowing the factors and variables that have the largest correlations with their corresponding categories, we will dive into various models for analysis.
+
+
+
+## Statistical Learning Methods
+
+### Linear Regression for General Scores
+
+```
+## SCORES
+model_data <- free_prosp_data %>%
+  dplyr::select(region, freedom_score, prosperity_score) %>%
+  mutate(log_prosperity = log(prosperity_score))
+lin_model = lm(freedom_score ~ log_prosperity, model_data)
+
+## Check normalities, outliers, heteroscedasticity
+plot(model_data$freedom_score, model_data$log_prosperity)
+plot(lin_model)
+summary(lin_model)
+
+ggplot(data = model_data, aes(x = (freedom_score), y = prosperity_score)) +
+  geom_point(aes(color = region)) + 
+  geom_smooth(method = "glm", se = T) + 
+  labs(title = "Freedom Score v Prosperity Score") + 
+  xlab("Freedom Score") +
+  ylab("Prosperity Score")
+```
+
+![Linear Regression](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/freedomvprosperity.png?raw=true){width=60%}
+
+From this plot we can infer that there seems to be an upward curve resembling an exponential relationship. Thus, there may not be a clear linear relationship between freedom and prosperity. Expanding upon this, we notice that it may be possible to split the data into clusters. We will attempt to cluster the groups using Gaussian Mixture Model method.
+
+### Gaussian Mixture Model Clustering
+
+![Gaussian Mixture Model](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/gaussian_clusters.png?raw=true){width=60%}
+
+We can see from the clusters above that there are two clustered groups between the free and prosperous countries against the unfree and unprosperous countries. This is interesting as similar observations have been made during the exploratory phase that EU regions have, in general, higher scores of prosperity and freedom.
+
+### Regression Model with Interaction
+
+#### Ploting 
+```
+ggplot(ready_data, aes(per_capita_area * 100, `Freedom score 2021`)) +
+  geom_point(aes(color = `Prosperity category 2021`)) +
+  labs(title = "Compare Freedom-Driven Prosperity with Endowment") +
+  xlab("Per Capita Area") +
+  ylab("Freedom Score 2021")
+
+xyplot(`Freedom score 2021` ~ per_capita_area * 100 | factor(`Prosperity category 2021`), data = ready_data)
+```
+
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Compare%20Freedom-Driven%20Prosperity%20with%20Endowment.png?raw=true){width=60%}
+
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/A%20Closer%20Look.png?raw=true){width=60%}
+
+The first chart plots freedom score with per capita area, or in other words, a country's endowment, and points are classified based on its prosperity category. It's shown that most of the points have relatively low per capita area but still many have them are prosperous or mostly prosperous. In fact, for the several points that have better endowment but relatively unfree status, they are more likely to be unprosperous. Following on the freedom score, clearly, freer countries enjory more prosperousity.
+
+The second charts seperate the categories and show a even clearer trend that prosperity has little to do with a country's endowment but very much with freedom score.
+
+#### Analyzing
+
+```
+model = lm(`Prosperity score 2021` ~ `Freedom score 2021` * I(per_capita_area * 100), data = ready_data)
+summary(model)
+step(model, direction = "backward")
+```
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Criteria%20Based%20Model%20Selection.png?raw=true){width=60%}
+
+The initial model include quantitative measures of freedom, per capita area, and their interaction term. From both the p-value and backward selection based on AIC, it can be seen that only freedom score is statistically significant and its has the largest values of coefficients. This conclusion quantitatively justifies the above charts that freedom is the main factor that drives prosperity, despite a country's endowment.
+
+### Machine Learning Models for porsperity score prediction
+
+We use several supervised learning methods to build prediction models for prosperity scores based on all the freedom subcategories, and compare their performances. 
+
+### importing python libraries 
+```
+import pandas as pd
+import numpy as np 
+from sklearn import tree
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.metrics import f1_score
+import matplotlib.pyplot as plt
+import pickle
+import torch 
+from torch.utils.data import Dataset, DataLoader
+```
+### Data Processing and prediction settings 
+The following is our essential code for data processing purpose
+```
+sheets = ['Trade Freedom time', 'Investment Freedom time', "Women's Economic freedom time", 'Constraints on Government time', 'Political Rights time', 'Civil Liberties time', 'Judicial Effectiveness time', 'Efficient Judiciary time', 'Civil Justice time', 'Criminal Justice time', ' Government Integrity time', 'Perceptions of Corruption time', 'Absence of Corruption time', 'Public Disclosure time', 'State Capacity time', 'Order and Security time', 'Regulatory Effectivness time', ' Prosperity Index time']
+x = []
+
+for sheet in sheets:
+    df = pd.read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet_name=sheet)
+    for column in df.columns:
+        if "2021" in column and "raw" not in column:
+            x2021 = column 
+        if "2016" in column and "raw" not in column:
+            x2016 = column 
+        if "2011" in column and "raw" not in column:
+            x2011 = column 
+        if "2006" in column and "raw" not in column:
+            x2006 = column 
+        
+    tempX = list(df[x2021]) + list(df[x2016]) + list(df[x2011]) + list(df[x2006])
+    x.append(tempX)
+    
+x = np.array(x)
+x = x.T
+```
+
+Our data source is from the Atlantic Council. For every country beginning from 2006 and in every 5 years, the Atlantic Council give it a score for every freedom subcategories and prosperity. Using these scores, we form the training and testing data set. Since the algorithmic models we intend to use are designed for predicting discrete values, we have to classify the prosperity scores into reasonable partitions.In achieving this, the following basic statistical inferences are made:
+
+| mean | median | maximum | minimum | standard deviation| 
+| :----: | :----: | :----: | :----: | :----: |
+| 48.38 | 50.57 | 98.63 | 15.47 | 19.05 |
+
+
+The following is the visualization of distribution of prosperity scores amongst all data. 
+```
+plot = x[:, -1]
+x_plot= range(len(plot)) # [0, 1, 2, ..., n-1]
+y_plot = plot
+plt.scatter(x_plot, y_plot)
+plt.xlabel("Propserity scores data points")
+plt.ylabel("Propserity scores values")
+plt.title("Prosperity scores value scatter plots")
+```
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/muhan/prosperity_score_distribution.png?raw=true){width=50%}
+
+We observe that most countries have prosperity score in between 75 and 25 and a few are above 75. It is important to note that by Atlantic Council's definition, 75 is the threshold for developing countries and developed countries and 50 is the threshold for under developing countries and developing countries. We partition our data accordingly by this standard. We set the label 1, 2, and 3, where 1 stands for under developing countries, 2 stands for developing countries, and 3 stands for developed countries. Combining all the data from 2021, 2016, 2011, and 2006, we find that there are 384 under developing labels, 213, developing labels, and 99 developed labels. 
+
+| labels | meaning | threshold | size | 
+| :----: | :----: | :----: | :----: |
+| 1 | under developing countries | score <= 50 | 384 |
+| 2 | developing countries | score <= 75 and score > 50| 213 |
+| 3 | developed countries| score > 75 | 99 |
+
+
+Next, we delete all rows where there exists at least one null values. In separating training data and testing data, we use the default 0.8 value, whereby 80% of the data are for training and 20% of the data are for testing. After this process, we find that we have 395 data set for training and 98 for testing. It is also worth while to state that we have 17 features. 
+
+### Decision Tree
+Our initial decision tree model yields a 100% accuracy on training data and 82.65% accuracy on testing data. In avoiding over fitting, we then conduct post pruning. Our method is to continuously delete the node with the lowest impurity (least able to classify data) until the test data accuracy is maximized. The lowest impurity is manifested by "effective alpha". The following graph shows the accuracy with every node we prune (the x axis is the lowest effective alpha of every tree). 
+
+![](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/muhan/pruning_accuracy.png?raw=true){width=50%}
+
+
+While training accuracy decreases monotonically with nodes being removed, testing accuracy increases to a pinnacle, and then decreases monotonically. This is performing as expected since as the nodes are being removed, the problem of over fitting is being addressed, and as it starts to decrease, the model becomes to under fitting. In light of this observation, we pick the pinnacle of testing accuracy to be our final decision tree model. We reach a 85.71% accuracy for testing data and 95.94% accuracy for training data. 
+
+In addition, the simplicity of decision tree model also allows us to open the "black box" of the model itself. The following is the visualization of our post pruning model.  
+
+![Decision tree visualization](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/muhan/decision_tree.png?raw=true){width=80%}
+
+
+
+Such visualization allows us to obtain the nodes with highest impurity. It implies that the nodes are amongst the strongest in separating labels, and hence, they are the most determining factors in implicating prosperity. From descending importance, these variables are: "State capacity", "Absence of Corruption", "Government integrity", and "Efficient judiciary". In light of this finding, we state that an effective governmental apparatus in maintaining law and order correlates with a country's prosperity. 
+
+### Other attempts 
+Although we reached a decent accuracy based on random forest, it would be beneficial if we test the performance of other major models. We also attempted random forest, gradient boosting, and neural network. For random forest, we obtain the optimal results after 300 iterations, and for gradient boosting, it is 100 iterations. For neural network, we setup 1 hidden layer and 50 training epochs. The following are codes for training.
+
+```
+#Decision tree
+clf = tree.DecisionTreeClassifier()
+clf = clf.fit(x_train, y_train)
+
+#Random forest
+clf_random=RandomForestClassifier(n_estimators=300)
+clf_random.fit(x_train,y_train)
+
+#Gradient boosting
+clf_gradientBoosting = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)
+clf_gradientBoosting.fit(x_train, y_train)
+
+#Neural network 
+#number of features (len of X cols)
+input_dim = 17
+# number of hidden layers
+hidden_layers = 1
+#number of classes (unique of y)
+output_dim = 3
+class Network(nn.Module):
+  def __init__(self):
+    super(Network, self).__init__()
+    self.linear1 = nn.Linear(input_dim, hidden_layers)
+    self.linear2 = nn.Linear(hidden_layers, output_dim)
+  def forward(self, x):
+    x = torch.sigmoid(self.linear1(x))
+    x = self.linear2(x)
+    return x
+```
+
+The following is the performance of all our models. 
+
+| Model | training data accuracy | testing data accuracy | training data F1 score | testing data F1 score | 
+| :----: | :----: | :----: | :----: | :----: |
+| Decision tree | 0.960 | 0.857 | 0.960 | 0.859 |
+| Random Forest | 1.000 | 0.867 | 1.000 | 0.864 |
+| Gradient Boosting | 1.000 | 0.878 | 1.000 | 0.876 |
+| Neural Network | 0.486 | 0.480 | 0.654 | 0.648 |
+
+Gradient Boosting and Decision Tree performed slightly better than Decision Tree, while Neural Network's performance is catastrophic, this is possibly due to lack of training data, and preponderance of features. Simple model such as decision tree almost performed as well as Random Forest and Gradient Tree. 
+
+
+
+## Trend analysis
+
+This section follows up on the previous analysis and looks closer into countries that experienced largest change in freedom score and prosperity score. We get raw, continuous data from the World Bank and plot it with year. The purpose is to see trends movement as these countries went through big changes. The countries chosen here are Venezuela, Hungary, China, and USA. 
+
+Venezuela is chosen due to the fact that it is one of the countries that experienced the biggest change in both freedom and prosperity score. Hungary is chosen because it has one of the biggest changes in freedom score. The European Union and USA are chosen because of their representations of large regions as well as their data richness.
+
+- The rapid decline of property registry represents a positive increase in the region's freedom.  
+- The overall decrease in air pollution and CO2 emissions along with the increase in forest areas signifies a positive impact on the region's prosperity.  
+- Overall increasing trend in life expectancy aligns with the positive prosperity change.  
+- The steady increasing trend in income levels and fluctuations is an ideal representation of positive economic growth.
+
+### Time series plotting (only code for Venezuela are showed here)
+```
+# Freedom
+# Economic freedom
+VF = ggplot(Venezuela_econ, aes(x = year)) +
+  geom_line(aes(y = register_property_time, color = "Register Property Time")) +
+  geom_line(aes(y = register_property_procedure * 5, color = "Register Property Procedure")) +
+  labs(title = "Economic Freedom Trend for Venezuela") +
+  xlab("Year") +
+  ylab("Vebezuela Econ") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+# Political and legal freedom are ignored as too less data points were collected.
+
+# Prosperity
+# Environment
+VE = ggplot(Venezuela_envir, aes(x = year)) +
+  geom_line(aes(y = co2_emmision, color = "CO2 Emmision")) +
+  geom_line(aes(y = forest_area / 10, color = "Forest Area")) +
+  geom_line(aes(y = water_stress, color = "Water Stress")) +
+  labs(title = "Environment Level Measurement") +
+  xlab("Year") +
+  ylab("Environment") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Income
+VI = ggplot(Venezuela_income, aes(x = year)) +
+  geom_line(aes(y = gni_capita / 1000, color = "GNI per Capita, Current $")) +
+  geom_line(aes(y = inflation / 10 , color = "Inflation, Annual %")) +
+  geom_line(aes(y = unemployment, color = "Unemployment, % Total")) +
+  labs(title = "Income Level Measurement") +
+  xlab("Year") +
+  ylab("Income") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+# Health
+VH = ggplot(Venezuela_health, aes(x = year)) +
+  geom_line(aes(y = life_expectancy, color = "Life Expectancy")) +
+  labs(title = "Health Level Measurement") +
+  xlab("Year") +
+  ylab("Life Expectancy") +
+  theme(legend.position="bottom") +
+  labs(colour = NULL)
+
+ggarrange(VF, VE, VH, VI, ncol = 2, nrow = 2, widths = c(1.5, 1.5, 1.5, 1.5))
+```
+
+![Venezuela Time Series](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Time%20Series%201%20Venezuela.png?raw=true){width=80%}
+
+Venezuela experenced a large negative change in freedom and prosperity scores in the past 15 years. The economic freedom measurement corresponded with these facts as time and procedures required to register a property all went up. At around the turning point, which at about the year of 2009, clearly life expectancy peaked and started to drop. Inflation rate also sky-rocked shortly afterward. Therefore, we saw again from raw data that Venezuela became less prosperous after the country turned unfree.
+
+![Hungary Time Series](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Time%20Series%202%20Hungary.png?raw=true){width=80%}
+
+Hungary experienced a big positive change in freedom scores and the economic freedom indicators show the same conclusion, both time and procedure required to register a property went down over time. By this, the environment in Hungary was getting better as forest area was increasing, CO2 emission and water stress level were going done. As a result, the life expectancy had gone up and GNI per capita increased fastly and consistently. Inflation and unemployment rate remianed low for a proloned period of time.
+
+![EU Time Series](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Time%20Series%203%20EU.png?raw=true){width=80%}
+
+![USA Time Series](https://github.com/illinois-stat447/fa22-prj-muhanz2-jk36-haorany3-maf7/blob/main/img/henry-img/Time%20Series%204%20US.png?raw=true){width=80%}
+
+The US and EU data shown above don't have clear pattern, but overall it can be concluded that as a region get more free over time, environment, health, and income tend to increase. Due to the lack of data and exact indicators, we are not able to replicate the original freedom and prosperity scores. However, the existing conclusion shows consistent pattern that corresponds and reinforces with our conclusion
+
+## Conclusion
+
+To summarize, we have performed exploratory analysis on the data set provided by the Atlantic Council, generated machine learning models to identify the significant variables in determining a country's freedom and prosperity, and have used these information to examine and analyze the raw data provided by World Bank.  
+
+The overall scores for freedom and prosperity follows a normal distribution, with two evident groups discovered by Gaussian clustering. From the decision tree classification, we have discovered that an effective governmental apparatus in maintaining law and order correlates with a country’s prosperity.
+
+The time series analysis performed for multiple cases generally aligns with our findings and resulting models, but realized that the lack of data provided by the World Bank hinders us from getting a more holistic analysis.
+
+### Limitations and Future Work
+
+There are several limitations regarding the this research project and possibilities for other researchers to expand upon. The conclusion we have reached is backed by our data but a more thorough dataset that includes more raw data for more countries for more years would clearly obtain a more complete analysis. In addition, other researchers could investigate scores from past years, such as 2006. They could use the dataset to predict the futuristic scores of nations and develop brand new models or methods for this prediction. Or, unlike our process, PCA methods could be used to reduce the dimensionality of our dataset. Another possibility is to attempt on building a generalized linear model that can give an estimate to a country's freedom score given the raw data.
+
+
+## Data Source 
+- Negrea, Dan, and Matthew Kroenic. “Do Countries Need Freedom to Achieve Prosperity?” Atlantic Council, July 7, 2022. https://www.atlanticcouncil.org/in-depth-research-reports/report/do-countries-need-freedom-to-achieve-prosperity/. 
+#### World Bank
+- Time required to register a property (days): https://data.worldbank.org/indicator/IC.PRP.DURS
+- Procedures to register property (number): https://data.worldbank.org/indicator/IC.PRP.PROC
+- Taxes on income, profits and capital gains (% of total taxes): https://data.worldbank.org/indicator/GC.TAX.YPKG.ZS
+- Literacy rate, adult total (% of people ages 15 and above): https://data.worldbank.org/indicator/SE.ADT.LITR.ZS
+- CPIA business regulatory environment rating (1=low to 6=high): https://data.worldbank.org/indicator/IQ.CPA.BREG.XQ
+- CPIA property rights and rule-based governance rating (1=low to 6=high): https://data.worldbank.org/indicator/IQ.CPA.PROP.XQ
+- Strength of legal rights index (0=weak to 12=strong): https://data.worldbank.org/indicator/IC.LGL.CRED.XQ
+- CO2 emissions (metric tons per capita): https://data.worldbank.org/indicator/EN.ATM.CO2E.PC
+- Forest area (% of land area): https://data.worldbank.org/indicator/AG.LND.FRST.ZS
+- PM2.5 air pollution, mean annual exposure (micrograms per cubic meter): https://data.worldbank.org/indicator/EN.ATM.PM25.MC.M3
+- Level of water stress: freshwater withdrawal as a proportion of available freshwater resources: https://data.worldbank.org/indicator/ER.H2O.FWST.ZS
+- GNI per capita (current international $): https://data.worldbank.org/indicator/NY.GNP.PCAP.PP.CD
+- Inflation, consumer prices (annual %): https://data.worldbank.org/indicator/FP.CPI.TOTL.ZG
+- Unemployment, total (% of total labor force): https://data.worldbank.org/indicator/SL.UEM.TOTL.ZS
+- Life expectancy at birth, total (years): https://data.worldbank.org/indicator/SP.DYN.LE00.IN
+- Diabetes prevalence (% of population ages 20 to 79): https://data.worldbank.org/indicator/SH.STA.DIAB.ZS

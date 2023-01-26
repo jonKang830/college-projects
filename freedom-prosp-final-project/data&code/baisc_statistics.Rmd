@@ -1,0 +1,97 @@
+---
+title: "basic_statisitcs"
+output: html_document
+author: "Muhan Zhang"
+date: "2022-12-06"
+---
+
+```{r results='hide', message=FALSE, echo=FALSE}
+library("readxl")
+library("psych")
+
+```
+
+# Import data
+```{r echo = T, results = 'hide'}
+freedom <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Freedom Index time")
+economic <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Economic Freedom time")
+property <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Property Rights time")
+trade <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Trade Freedom time")
+investment <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Investment Freedom time")
+women <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Women's Economic freedom time")
+political <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Political Freedom time")
+constraint <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Constraints on Government time")
+rights <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Political Rights time")
+civil <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Civil Liberties time")
+legal <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Legal Freedom time")
+judicial <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Judicial Effectiveness time")
+judiciary <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Efficient Judiciary time")
+justice <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Civil Justice time")
+criminal <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Criminal Justice time")
+integrity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Government Integrity time")
+corruption <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Perceptions of Corruption time")
+absenceCorruption <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Absence of Corruption time")
+disclosure <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Public Disclosure time")
+capacity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "State Capacity time")
+security <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Order and Security time")
+regulatory <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Regulatory Effectivness time")
+prosperity <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = " Prosperity Index time")
+income <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Income time")
+environment <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Environment time")
+minority <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Minority Rights time")
+minority[minority == "no data"] <- NA
+health <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Health time")
+happiness <- read_excel("Freedom-and-Prosperity-Indexes-Full-Data-Set.xlsx", sheet = "Happiness time")
+```
+
+# MetaData processing
+## Processing data into dataframe 
+```{R}
+Economic <- data.frame(economic[1:174, "Economic Freedom score 2021"])
+Economic["Property Rights"] <- property[1:174, "Property Rights score 2021"]
+Economic["Trade Freedom"] <- trade[1:174, "Trade Freedom score 2021"]
+Economic["Investment Freedom"] <- investment[1:174, "Investment Freedom score 2021"]
+Economic["Women's Economic Freedom"] <- women[1:174, "Women's Economic Freedom score 2021"]
+
+Political <- data.frame(political[1:174, "Political Freedom score 2021"])
+Political["Constrainsts on Government"] <- constraint[1:174, "Constrainsts on Government score 2021"]
+Political["Political Rights"] <- rights[1:174, "Political Rights score 2021"]
+Political["Civil liberties"] <- civil[1:174, "Civil liberties score 2021"]
+
+Legal <- data.frame(legal[1:174, "Legal Freedom score 2021"])
+Legal["Judicial Effectiveness"] <- judicial[1:174, "Judicial Effectiveness score 2021"]
+Legal["Efficient Judiciary"] <- judiciary[1:174, "Efficient Judiciary score 2021"]
+Legal["Civil Justice"] <- justice[1:174, "Civil Justice score 2021"]
+Legal["Criminal Justice"] <- criminal[1:174, "Criminal Justice score 2021"]
+Legal["Government Integrity"] <- integrity[1:174, "Government Integrity score 2021"]
+Legal["Perceptions of Corruption"] <- corruption[1:174, "Perceptions of Corruption score 2021"]
+Legal["Absence of Corruption"] <- absenceCorruption[1:174, "Absence of Corruption  score 2021"]
+Legal["Public Disclosure"] <- disclosure[1:174, "Public Disclosure score 2021"]
+Legal["State Capacity"] <- capacity[1:174, "State Capacity score 2021"]
+Legal["Order and Security"] <- security[1:174, "Order and Security score 2021"]
+Legal["Regulatory Effectivness"] <- regulatory[1:174, "Regulatory Effectivness score 2021"]
+
+Prosperity <- data.frame(prosperity[1:174, "Prosperity Index 2021"])
+Prosperity["GNI per capita"] <- income[1:174, "GNI per capita 2021 score"]
+Prosperity["Environment"] <- environment[1:174, "Environment score 2021"]
+Prosperity["Minority Rights"] <- minority[1:174, "Minority Rights 2021 score"]
+Prosperity["Health"] <- health[1:174, "Health 2021 score"]
+Prosperity["Happiness"] <- happiness[1:174, "Happiness score 2021"]
+```
+
+## basic statistics of economic freedom
+```{R}
+describe(Economic)
+```
+## basic statistics of political freedom
+```{R}
+describe(Political)
+```
+## basic statistics of legal freedom
+```{R}
+describe(Legal)
+```
+## basic statistics of prosperity 
+```{R}
+describe(Prosperity)
+```
