@@ -1,0 +1,682 @@
+---
+title: "CMI Data Analysis"
+author: "Jonathan Kang (jk36)"
+date: '2022-11-21'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+library(tidyverse)
+library(readr)
+library(sqldf)
+library(lubridate)
+library(ggplot2)
+library(plotly)
+library(weathermetrics)
+library(nleqslv)
+library(forecast)
+
+set.seed(2022)
+```
+
+# Import .txt data files
+
+(Refer to exploratory for details)
+```{r, warning=FALSE}
+# original
+
+# ogCMIDAY <- read.delim("~/ures/CMIDAY.txt")
+
+ogCMIDAY <- read.delim("~/Documents/College/FA22/URES/RawData/CMIDAY.txt")
+units <- head(ogCMIDAY,1) # units for each category
+
+# using bash, remove the second row with the units, create new file without the units
+  # sed 2d CMIDAY.txt > CMIDAY_rmunits.txt
+CMIDAY_rmunits <- read.delim("~/Documents/College/FA22/URES/RawData/CMIDAY_rmunits.txt")
+# CMIDAY_rmunits <- read.delim("~/ures/CMIDAY_rmunits.txt")
+# glimpse(CMIDAY_rmunits)
+
+CMIDAY_data <- head(CMIDAY_rmunits, -10) # excess notes at bottom
+# head(CMIDAY_data)
+
+data <- sqldf("
+SELECT year, month, day, avg_rel_hum, avg_air_temp as avg_air_temp_f
+FROM CMIDAY_data
+")
+
+data$avg_rel_hum <- as.numeric(data$avg_rel_hum)
+data$avg_air_temp_f <- as.numeric(data$avg_air_temp_f)
+
+# Fix the NA issues, then proceed with Celsius version and create time series for that
+data2 = data
+
+mean_temp1 = mean(c(data$avg_air_temp_f[(8325-6):8325],data$avg_air_temp_f[8328:(8328+6)]))
+mean_hum1 = mean(c(data$avg_rel_hum[(8325-6):8325],data$avg_rel_hum[8328:(8328+6)]))
+
+mean_temp2 = mean(c(data$avg_air_temp_f[(9212-6):9212],data$avg_air_temp_f[9214:(9214+6)]))
+mean_hum2 = mean(c(data$avg_rel_hum[(9212-6):9212],data$avg_rel_hum[9214:(9214+6)]))
+
+mean_temp3 = mean(c(data$avg_air_temp_f[(9990-6):9990],data$avg_air_temp_f[9994:(9994+6)]))
+mean_hum3 = mean(c(data$avg_rel_hum[(9990-6):9990],data$avg_rel_hum[9994:(9994+6)]))
+data2$avg_air_temp_f[8326:8327] = round(mean_temp1,3)
+data2$avg_air_temp_f[9213] = round(mean_temp2,3)
+data2$avg_air_temp_f[9991:9993] = round(mean_temp3,3)
+data2$avg_rel_hum[8326:8327] = round(mean_hum1,3)
+data2$avg_rel_hum[9213] = round(mean_hum2,3)
+data2$avg_rel_hum[9991:9993] = round(mean_hum3,3)
+data2 = data2[-11763,] # remove empty row
+
+data_Xna <- data2 %>% mutate(
+  avg_air_temp_c = (avg_air_temp_f - 32) * (5/9),
+  date_string = paste(year, month, day, sep="-"),
+  date = as.Date(date_string)
+)
+
+data_HI <- sqldf("
+SELECT date, avg_air_temp_f, avg_rel_hum, month
+FROM data_Xna
+")
+
+# Bound of avg_rel_hum = [0,100] (only have vals > 100%)
+large_rh = grep(T, data_HI$avg_rel_hum > 100)
+# slice(data_HI, large_rh)
+data_HI$avg_rel_hum[large_rh] = 100 
+
+data_HI$heat_index <- heat.index(t = data_HI$avg_air_temp_f,
+                                 rh = data_HI$avg_rel_hum,
+                                 temperature.metric = "fahrenheit")
+
+# the 85th percentile
+heat_index_calc <- data_HI %>%
+  filter(month == "7" | month == "8") %>%
+  filter(date >= "1990-01-01" & date <"2021-01-01")
+
+HI_index = quantile(heat_index_calc$heat_index, 0.85)
+# HI_index
+```
+
+
+```{r}
+data_HW_setup <- data_HI %>%
+  mutate(heat_index_85p = heat_index >= HI_index) %>% # heat_index_85p = T if heat_index > 85th of summers
+  select(date, heat_index, heat_index_85p) %>%
+  filter(month(date) < 10 & month(date) > 4) %>%  # within the interested range
+  filter(year(date) >= 1989 & year(date) < 2020)
+
+data_HW <- data_HW_setup
+```
+
+
+
+```{r}
+# Decompose the Yearly Warm Months Heat Indexes into Trend, Seasonal, and Residual components
+# All Years
+heat_index_curr <- data_HW %>% select(heat_index)
+dates = data_HW %>% select(date)
+heat_indexes <- as.numeric(unlist(heat_index_curr))
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+ogmyts <- ts(heat_indexes, start = c(1989, as.numeric(format(inds[1], "%j"))), freq = 153) %>% stl(t.window = 153, s.window = 32)
+
+ogmyts %>%
+  autoplot()
+
+# Decompose the Yearly Warm Months Heat Indexes into Trend, Seasonal, and Residual components
+# Single Year
+data_HW_decompose_setup <- data_HW %>% filter(year(date) == 1989) %>% select(heat_index)
+dates = data_HW %>% filter(year(date) == 1989) %>% select(date)
+heat_indexes <- as.numeric(unlist(data_HW_decompose_setup))
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+myts <- ts(heat_indexes, start = c(0),
+           frequency = 1,)
+myts %>%
+  mstl() %>%
+  autoplot()
+
+# Forecast testing with Arima
+# ## use auto.arima to choose ARIMA terms
+# fit <- auto.arima(myts)
+# ## forecast for next 60 time points
+# fore <- forecast(fit, h = 60)
+# ## plot it
+# plot(fore)
+```
+
+# Bootstrap through STL Decomposition
+
+```{r}
+set.seed(2022)
+
+## Obtain the stl remainder for every year
+# years <- seq(1989, 2020, 1) ### NOTE: This code works with 32 years
+# remainders <- matrix(0,nrow=153,ncol=32) # 153 days of 32 years
+# seasonal
+# # TODO: Obtain Seasonal Information
+# 
+# for (index in 1:length(years)){
+#   yr = years[index]
+#   data_HW_decompose_setup <- data_HW %>% filter(year(date) == yr) %>% select(heat_index)
+#   dates = data_HW %>% filter(year(date) == yr) %>% select(date)
+#   heat_indexes <- as.numeric(unlist(data_HW_decompose_setup))
+#   inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+#   mstl_results <- ts(heat_indexes, start = c(0),
+#              frequency = 1,) %>% mstl()
+#   head(mstl_results)
+#   remainders[,index] = mstl_results[,3]
+# }
+
+n = 2 # Only consider lag 1
+L = 1 # Aggregation period = 1 for our case = daily
+# x = [lambda, mu, theta]
+boot_Rods <- function(x){
+  rod_mean <- x[1]/(x[2]*x[3]) * L - expected_val
+  rod_var <- 4*x[1]/(x[3]**3 * x[2]**2) * (x[3]*L - 1 + exp(-x[3] * L)) - standdev**2
+  rod_covar <- 2*x[1]/(x[3]**3 * x[2]**2) * (1-exp(-x[3]*L))**2 * exp(-(n-2)*x[3]*L) - covars
+  return(c(rod_mean, rod_var, rod_covar))
+}
+
+heat_index_curr <- data_HW %>% select(heat_index)
+dates = data_HW %>% select(date)
+heat_indexes <- as.numeric(unlist(heat_index_curr))
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+myts <- ts(heat_indexes, start = c(1989, as.numeric(format(inds[1], "%j"))), freq = 153)
+myts_result <- myts %>% stl(t.window = 153, s.window = 32)
+
+remainders = matrix(remainder(myts_result),nrow = 153, byrow=FALSE)
+seasonals = seasonal(myts_result)
+trend_cycles = trendcycle(myts_result)
+
+## Bootstrap - Randomly select annuals with replacement
+
+iterations = 2000
+boot_lambda = numeric(iterations)
+boot_mu = numeric(iterations)
+boot_theta = numeric(iterations)
+
+for (iter in 1:iterations){
+  # Randomly select 32 years with replacement of heat indexes
+  years = c(sample.int(31, 31, replace=T))
+  boot_remainders = array(remainders[,years])
+  
+  # Definition of STL decomposition
+  boot_heat_indexes = boot_remainders + seasonals + trend_cycles 
+  
+  # Collect current and lagged heat indexes
+  curr = numeric(4712)
+  lagx = numeric(4712)
+  index = 1
+  
+  for(yr in 1:length(years)){ # every year
+    for(i in 1:(153 - 1)){ # days in a year (lag is end day)
+      curr[index] = boot_heat_indexes[i + (yr-1)*153]
+      lagx[index] = boot_heat_indexes[i + 1 + (yr-1)*153]
+      index = index + 1
+    }
+  }
+  
+  # Find empirical values
+  expected_val = mean(boot_heat_indexes)
+  standdev = sd(boot_heat_indexes)
+  covars = cov(curr, lagx)
+  # Perform nleqslv with rods equations
+  inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+  boot_lambda[iter] = nleqslv(inits, boot_Rods)$x[1]
+  boot_mu[iter] = nleqslv(inits, boot_Rods)$x[2]
+  boot_theta[iter] = nleqslv(inits, boot_Rods)$x[3]
+  
+}
+
+par(mfrow=c(1,3))
+plot(boot_lambda)
+plot(boot_mu)
+plot(boot_theta)
+
+mean_lambda = mean(boot_lambda)
+mean_mu = mean(boot_mu)
+mean_theta = mean(boot_theta)
+c(mean_lambda, mean_mu, mean_theta)
+
+# Standard Errors
+sd_lambda = sd(boot_lambda)
+sd_mu = sd(boot_mu)
+sd_theta = sd(boot_theta)
+c(sd_lambda, sd_mu, sd_theta)
+
+
+```
+
+After 5000 iterations:  
+[lambda,mu,theta]  
+mean =  29.9352365  1.5419067  0.2734007 
+sd = 1.911051223 0.052300347 0.009801307
+
+### Test results with annual information 
+```{r}
+## Initialize arrays for each decade
+decade_bs_mean_lambda = numeric(3)
+decade_bs_mean_mu = numeric(3)
+decade_bs_mean_theta = numeric(3)
+decade_bs_sd_lambda = numeric(3)
+decade_bs_sd_mu = numeric(3)
+decade_bs_sd_theta = numeric(3)
+```
+
+```{r}
+# Fit RPPM by the decadesm and compare the resulting params on a table
+
+n = 2 # Only consider lag 1
+L = 1 # Aggregation period = 1 for our case = daily
+# x = [lambda, mu, theta]
+dec_Rods <- function(x){
+  rod_mean <- x[1]/(x[2]*x[3]) * L - expected_val
+  rod_var <- 4*x[1]/(x[3]**3 * x[2]**2) * (x[3]*L - 1 + exp(-x[3] * L)) - standdev**2
+  rod_covar <- 2*x[1]/(x[3]**3 * x[2]**2) * (1-exp(-x[3]*L))**2 * exp(-(n-2)*x[3]*L) - covars
+  return(c(rod_mean, rod_var, rod_covar))
+}
+
+
+decade_lambda = numeric(3)
+decade_mu = numeric(3)
+decade_theta = numeric(3)
+
+
+data_90s <- data_HW %>% filter(year(date) >= 1990,
+                               year(date) <= 1999)
+# print(head(data_90s,1));print(tail(data_90s,1))
+
+hi_90s <- data_90s %>% select(heat_index)
+hi_90s <- as.numeric(unlist(hi_90s))
+curr = numeric(152 * 10)
+lagx = numeric(152 * 10)
+index = 1
+for(yr in 1:10){ 
+  for(i in 1:(153 - 1)){ 
+    curr[index] = hi_90s[i + (yr-1)*153]
+    lagx[index] = hi_90s[i + 1 + (yr-1)*153]
+    index = index + 1
+  }
+}
+
+# Find empirical values
+expected_val = mean(hi_90s)
+standdev = sd(hi_90s)
+covars = cov(curr, lagx)
+# Perform nleqslv with rods equations
+inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+
+decade_lambda[1] = nleqslv(inits, dec_Rods)$x[1]
+decade_mu[1] = nleqslv(inits, dec_Rods)$x[2]
+decade_theta[1] = nleqslv(inits, dec_Rods)$x[3]
+
+
+```
+
+Bootstraps 
+
+```{r}
+set.seed(2022)
+dates = data_90s %>% select(date)
+
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+myts <- ts(hi_90s, start = c(1990, as.numeric(format(inds[1], "%j"))), freq = 153)
+myts_result <- myts %>% stl(t.window = 153, s.window = 32)
+
+remainders = matrix(remainder(myts_result),nrow = 153, byrow=FALSE)
+seasonals = seasonal(myts_result)
+trend_cycles = trendcycle(myts_result)
+
+## Bootstrap - Randomly select annuals with replacement
+
+iterations = 5000
+boot_lambda = numeric(iterations)
+boot_mu = numeric(iterations)
+boot_theta = numeric(iterations)
+
+for (iter in 1:iterations){
+  # Randomly select 32 years with replacement of heat indexes
+  years = c(sample.int(10, 10, replace=T))
+  boot_remainders = array(remainders[,years])
+  
+  # Definition of STL decomposition
+  boot_heat_indexes = boot_remainders + seasonals + trend_cycles 
+  
+  # Collect current and lagged heat indexes
+  curr = numeric(152 * 10)
+  lagx = numeric(152 * 10)
+  index = 1
+  
+  for(yr in 1:length(years)){ # every year
+    for(i in 1:(153 - 1)){ # days in a year (lag is end day)
+      curr[index] = boot_heat_indexes[i + (yr-1)*153]
+      lagx[index] = boot_heat_indexes[i + 1 + (yr-1)*153]
+      index = index + 1
+    }
+  }
+  
+  # Find empirical values
+  expected_val = mean(boot_heat_indexes)
+  standdev = sd(boot_heat_indexes)
+  covars = cov(curr, lagx)
+  # Perform nleqslv with rods equations
+  inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+  boot_lambda[iter] = nleqslv(inits, boot_Rods)$x[1]
+  boot_mu[iter] = nleqslv(inits, boot_Rods)$x[2]
+  boot_theta[iter] = nleqslv(inits, boot_Rods)$x[3]
+  
+}
+
+plot(boot_lambda)
+plot(boot_mu)
+plot(boot_theta)
+
+mean_lambda = mean(boot_lambda)
+mean_mu = mean(boot_mu)
+mean_theta = mean(boot_theta)
+c(mean_lambda, mean_mu, mean_theta)
+
+# Standard Errors
+sd_lambda = sd(boot_lambda)
+sd_mu = sd(boot_mu)
+sd_theta = sd(boot_theta)
+c(sd_lambda, sd_mu, sd_theta)
+
+decade_bs_mean_lambda[1] = mean_lambda
+decade_bs_mean_mu[1] = mean_mu
+decade_bs_mean_theta[1] = mean_theta
+
+decade_bs_sd_lambda[1] = sd_lambda
+decade_bs_sd_mu[1] = sd_mu
+decade_bs_sd_theta[1] = sd_theta
+```
+
+
+
+
+### 2000s
+```{r}
+data_00s <- data_HW %>% filter(year(date) >= 2000,
+                               year(date) <= 2009)
+# print(head(data_00s,1));print(tail(data_00s,1))
+
+hi_00s <- data_00s %>% select(heat_index)
+hi_00s <- as.numeric(unlist(hi_00s))
+curr = numeric(152 * 10)
+lagx = numeric(152 * 10)
+index = 1
+for(yr in 1:10){ 
+  for(i in 1:(153 - 1)){ 
+    curr[index] = hi_00s[i + (yr-1)*153]
+    lagx[index] = hi_00s[i + 1 + (yr-1)*153]
+    index = index + 1
+  }
+}
+
+# Find empirical values
+expected_val = mean(hi_00s)
+standdev = sd(hi_00s)
+covars = cov(curr, lagx)
+# Perform nleqslv with rods equations
+inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+
+decade_lambda[2] = nleqslv(inits, dec_Rods)$x[1]
+decade_mu[2] = nleqslv(inits, dec_Rods)$x[2]
+decade_theta[2] = nleqslv(inits, dec_Rods)$x[3]
+
+```
+
+Bootstrap
+
+```{r}
+set.seed(2022)
+dates = data_00s %>% select(date)
+
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+myts <- ts(hi_00s, start = c(2000, as.numeric(format(inds[1], "%j"))), freq = 153)
+myts_result <- myts %>% stl(t.window = 153, s.window = 32)
+
+remainders = matrix(remainder(myts_result),nrow = 153, byrow=FALSE)
+seasonals = seasonal(myts_result)
+trend_cycles = trendcycle(myts_result)
+
+## Bootstrap - Randomly select annuals with replacement
+
+iterations = 5000
+boot_lambda = numeric(iterations)
+boot_mu = numeric(iterations)
+boot_theta = numeric(iterations)
+
+for (iter in 1:iterations){
+  # Randomly select 32 years with replacement of heat indexes
+  years = c(sample.int(10, 10, replace=T))
+  boot_remainders = array(remainders[,years])
+  
+  # Definition of STL decomposition
+  boot_heat_indexes = boot_remainders + seasonals + trend_cycles 
+  
+  # Collect current and lagged heat indexes
+  curr = numeric(152 * 10)
+  lagx = numeric(152 * 10)
+  index = 1
+  
+  for(yr in 1:length(years)){ # every year
+    for(i in 1:(153 - 1)){ # days in a year (lag is end day)
+      curr[index] = boot_heat_indexes[i + (yr-1)*153]
+      lagx[index] = boot_heat_indexes[i + 1 + (yr-1)*153]
+      index = index + 1
+    }
+  }
+  
+  # Find empirical values
+  expected_val = mean(boot_heat_indexes)
+  standdev = sd(boot_heat_indexes)
+  covars = cov(curr, lagx)
+  # Perform nleqslv with rods equations
+  inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+  boot_lambda[iter] = nleqslv(inits, boot_Rods)$x[1]
+  boot_mu[iter] = nleqslv(inits, boot_Rods)$x[2]
+  boot_theta[iter] = nleqslv(inits, boot_Rods)$x[3]
+  
+}
+
+plot(boot_lambda)
+plot(boot_mu)
+plot(boot_theta)
+
+mean_lambda = mean(boot_lambda)
+mean_mu = mean(boot_mu)
+mean_theta = mean(boot_theta)
+c(mean_lambda, mean_mu, mean_theta)
+
+# Standard Errors
+sd_lambda = sd(boot_lambda)
+sd_mu = sd(boot_mu)
+sd_theta = sd(boot_theta)
+c(sd_lambda, sd_mu, sd_theta)
+
+decade_bs_mean_lambda[2] = mean_lambda
+decade_bs_mean_mu[2] = mean_mu
+decade_bs_mean_theta[2] = mean_theta
+
+decade_bs_sd_lambda[2] = sd_lambda
+decade_bs_sd_mu[2] = sd_mu
+decade_bs_sd_theta[2] = sd_theta
+```
+
+
+### 2010s
+```{r}
+data_10s <- data_HW %>% filter(year(date) >= 2010,
+                               year(date) <= 2019)
+# print(head(data_10s,1));print(tail(data_10s,1))
+
+hi_10s <- data_10s %>% select(heat_index)
+hi_10s <- as.numeric(unlist(hi_10s))
+curr = numeric(152 * 10)
+lagx = numeric(152 * 10)
+index = 1
+for(yr in 1:10){ 
+  for(i in 1:(153 - 1)){ 
+    curr[index] = hi_10s[i + (yr-1)*153]
+    lagx[index] = hi_10s[i + 1 + (yr-1)*153]
+    index = index + 1
+  }
+}
+
+# Find empirical values
+expected_val = mean(hi_10s)
+standdev = sd(hi_10s)
+covars = cov(curr, lagx)
+# Perform nleqslv with rods equations
+inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+
+decade_lambda[3] = nleqslv(inits, dec_Rods)$x[1]
+decade_mu[3] = nleqslv(inits, dec_Rods)$x[2]
+decade_theta[3] = nleqslv(inits, dec_Rods)$x[3]
+
+```
+
+Bootstrapped
+
+```{r}
+set.seed(2022)
+dates = data_10s %>% select(date)
+
+inds <- seq(dates[,1][1], dates[,1][nrow(dates)], by = "day")
+myts <- ts(hi_10s, start = c(2010, as.numeric(format(inds[1], "%j"))), freq = 153)
+myts_result <- myts %>% stl(t.window = 153, s.window = 32)
+
+remainders = matrix(remainder(myts_result),nrow = 153, byrow=FALSE)
+seasonals = seasonal(myts_result)
+trend_cycles = trendcycle(myts_result)
+
+## Bootstrap - Randomly select annuals with replacement
+
+iterations = 5000
+boot_lambda = numeric(iterations)
+boot_mu = numeric(iterations)
+boot_theta = numeric(iterations)
+
+for (iter in 1:iterations){
+  # Randomly select 32 years with replacement of heat indexes
+  years = c(sample.int(10, 10, replace=T))
+  boot_remainders = array(remainders[,years])
+  
+  # Definition of STL decomposition
+  boot_heat_indexes = boot_remainders + seasonals + trend_cycles 
+  
+  # Collect current and lagged heat indexes
+  curr = numeric(152 * 10)
+  lagx = numeric(152 * 10)
+  index = 1
+  
+  for(yr in 1:length(years)){ # every year
+    for(i in 1:(153 - 1)){ # days in a year (lag is end day)
+      curr[index] = boot_heat_indexes[i + (yr-1)*153]
+      lagx[index] = boot_heat_indexes[i + 1 + (yr-1)*153]
+      index = index + 1
+    }
+  }
+  
+  # Find empirical values
+  expected_val = mean(boot_heat_indexes)
+  standdev = sd(boot_heat_indexes)
+  covars = cov(curr, lagx)
+  # Perform nleqslv with rods equations
+  inits = c(30.0274736, 1.4780614, 0.2863455) # inits from original
+  boot_lambda[iter] = nleqslv(inits, boot_Rods)$x[1]
+  boot_mu[iter] = nleqslv(inits, boot_Rods)$x[2]
+  boot_theta[iter] = nleqslv(inits, boot_Rods)$x[3]
+  
+}
+
+plot(boot_lambda)
+plot(boot_mu)
+plot(boot_theta)
+
+mean_lambda = mean(boot_lambda)
+mean_mu = mean(boot_mu)
+mean_theta = mean(boot_theta)
+c(mean_lambda, mean_mu, mean_theta)
+
+# Standard Errors
+sd_lambda = sd(boot_lambda)
+sd_mu = sd(boot_mu)
+sd_theta = sd(boot_theta)
+c(sd_lambda, sd_mu, sd_theta)
+
+decade_bs_mean_lambda[3] = mean_lambda
+decade_bs_mean_mu[3] = mean_mu
+decade_bs_mean_theta[3] = mean_theta
+
+decade_bs_sd_lambda[3] = sd_lambda
+decade_bs_sd_mu[3] = sd_mu
+decade_bs_sd_theta[3] = sd_theta
+```
+
+# Final Decadal Results
+Nov 28
+```{r}
+# decade_lambda
+# decade_mu
+# decade_theta
+# 
+# decade_bs_mean_lambda
+# decade_bs_mean_mu
+# decade_bs_mean_theta
+# decade_bs_sd_lambda
+# decade_bs_sd_mu
+# decade_bs_sd_theta
+
+# x = c(1990, 2000, 2010)
+x_axis = c("1990s", "2000s", "2010s")
+decades <- data.frame(x_axis, decade_lambda, decade_mu, decade_theta, decade_bs_mean_lambda, decade_bs_mean_mu, decade_bs_mean_theta)
+lamb_plot <- ggplot(data = decades) + 
+  # geom_hline(yintercept = mean_lambda, color = "dark green", linetype = "twodash") +
+  # geom_hline(yintercept = 30.0274736, color = "red", linetype = "dashed") + 
+  geom_errorbar(aes(x = x_axis, ymin = decade_bs_mean_lambda - 2*decade_bs_sd_lambda, ymax = decade_bs_mean_lambda + 2*decade_bs_sd_lambda),
+                color='dark green', width = 0.5, size=0.3) +
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_lambda), fill = "brown1", color = "brown1") + 
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_bs_mean_lambda), fill = "aquamarine4", color = "aquamarine4") +
+  labs(title = "Lambda (CMI)", subtitle = "Red = Obs, Green = BS") + 
+  xlab("Decade") + 
+  ylab("Lambda") + 
+  ylim(15, 45)
+
+mu_plot <- ggplot(data = decades) + 
+  # geom_hline(yintercept = mean_mu, color = "dark green", linetype = "twodash") +
+  # geom_hline(yintercept = 1.4780614, color = "red", linetype = "dashed") + 
+  geom_errorbar(aes(x = x_axis, ymin = decade_bs_mean_mu - 2*decade_bs_sd_mu, ymax = decade_bs_mean_mu + 2*decade_bs_sd_mu),
+                color='dark green', width = 0.5, size=0.3) +
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_mu), fill = "brown1", color = "brown1") + 
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_bs_mean_mu), fill = "aquamarine4", color = "aquamarine4") +
+  labs(title = "Mu (CMI)", subtitle = "Red = Obs, Green = BS") + 
+  xlab("Decade") + 
+  ylab("Mu") +
+  ylim(0.80, 1.9)
+
+theta_plot <- ggplot(data = decades) + 
+  # geom_hline(yintercept = mean_theta, color = "dark green", linetype = "twodash") +
+  # geom_hline(yintercept = 0.2863455, color = "red", linetype = "dashed") + 
+  geom_errorbar(aes(x = x_axis, ymin = decade_bs_mean_theta - 2*decade_bs_sd_theta, ymax = decade_bs_mean_theta + 2*decade_bs_sd_theta),
+                color='dark green', width = 0.5, size=0.3) +
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_theta), fill = "brown1", color = "brown1") + 
+  geom_point(shape=23, size = 3, aes(x=x_axis, y=decade_bs_mean_theta), fill = "aquamarine4", color = "aquamarine4") +
+  labs(title = "Theta (CMI)", subtitle = "Red = Obs, Green = BS") + 
+  xlab("Decade") + 
+  ylab("Theta") +
+  ylim(0.2, 0.5)
+
+library(gridExtra)
+grid.arrange(lamb_plot,mu_plot, theta_plot, nrow=1)
+```
+
+
+
+
+
+
+
+
+
+

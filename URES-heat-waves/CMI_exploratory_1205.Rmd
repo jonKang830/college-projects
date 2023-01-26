@@ -1,0 +1,382 @@
+---
+title: "CMI Data exploratory"
+author: "Jonathan Kang (jk36)"
+date: '2022-09-23'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+library(tidyverse)
+library(readr)
+library(sqldf)
+library(lubridate)
+library(ggplot2)
+library(plotly)
+library(weathermetrics)
+library(ggridges)
+```
+
+### Import .txt data files
+
+```{r}
+# original
+ogCMIDAY <- read.delim("~/Documents/College/FA22/URES/RawData/CMIDAY.txt")
+units <- head(ogCMIDAY,1) # units for each category
+
+# using bash, remove the second row with the units, create new file without the units
+  # sed 2d CMIDAY.txt > CMIDAY_rmunits.txt
+CMIDAY_rmunits <- read.delim("~/Documents/College/FA22/URES/RawData/CMIDAY_rmunits.txt")
+# glimpse(CMIDAY_rmunits)
+
+CMIDAY_data <- head(CMIDAY_rmunits, -10) # excess notes at bottom
+# head(CMIDAY_data)
+```
+
+Notes from txt (removed in CMIDAY_data): M = Missing data;\
+E = Estimated data;\
+suggested cication = Water and Atmospheric Resources Monitoring Program. Illinois Climate Network. (2022). Illinois State Water Survey, 2204 Griffith Drive, Champaign, IL 61820-7495. <http://dx.doi.org/10.13012/J8MW2F2Q>.
+
+## Modify Data
+
+NAs are fixed by finding the mean of 7 days before and after.
+
+```{r, warning=FALSE}
+data <- sqldf("
+SELECT year, month, day, avg_rel_hum, avg_air_temp as avg_air_temp_f
+FROM CMIDAY_data
+")
+
+data$avg_rel_hum <- as.numeric(data$avg_rel_hum)
+data$avg_air_temp_f <- as.numeric(data$avg_air_temp_f)
+
+## Review NA Rows
+# rows = grep(T, is.na(data$avg_air_temp_f))
+# slice(data, rows)
+# data[rows,]
+# rows = grep(T, is.na(data$avg_rel_hum))
+# slice(data, rows)
+# data[rows,]
+#
+
+# Fix the NA issues, then proceed with Celsius version and create time series for that
+data2 = data
+# for row 8326,8327
+mean_temp1 = mean(c(data$avg_air_temp_f[(8325-6):8325],data$avg_air_temp_f[8328:(8328+6)]))
+mean_hum1 = mean(c(data$avg_rel_hum[(8325-6):8325],data$avg_rel_hum[8328:(8328+6)]))
+# for row 9213
+mean_temp2 = mean(c(data$avg_air_temp_f[(9212-6):9212],data$avg_air_temp_f[9214:(9214+6)]))
+mean_hum2 = mean(c(data$avg_rel_hum[(9212-6):9212],data$avg_rel_hum[9214:(9214+6)]))
+# for row 9991,9992,9993
+mean_temp3 = mean(c(data$avg_air_temp_f[(9990-6):9990],data$avg_air_temp_f[9994:(9994+6)]))
+mean_hum3 = mean(c(data$avg_rel_hum[(9990-6):9990],data$avg_rel_hum[9994:(9994+6)]))
+data2$avg_air_temp_f[8326:8327] = round(mean_temp1,3)
+data2$avg_air_temp_f[9213] = round(mean_temp2,3)
+data2$avg_air_temp_f[9991:9993] = round(mean_temp3,3)
+data2$avg_rel_hum[8326:8327] = round(mean_hum1,3)
+data2$avg_rel_hum[9213] = round(mean_hum2,3)
+data2$avg_rel_hum[9991:9993] = round(mean_hum3,3)
+data2 = data2[-11763,] # remove empty row
+
+# # check nas
+# rows = grep(T, is.na(data2$avg_air_temp_f))
+# slice(data2, rows)
+# data2[rows,]
+# rows = grep(T, is.na(data2$avg_rel_hum))
+# slice(data2, rows)
+# data2[rows,]
+##
+
+data_Xna <- data2 %>% mutate(
+  avg_air_temp_c = (avg_air_temp_f - 32) * (5/9),
+  date_string = paste(year, month, day, sep="-"),
+  date = as.Date(date_string)
+)
+
+glimpse(data_Xna)
+```
+
+### Time series (temp)
+
+```{r, echo=FALSE}
+time_series_faren <- plot_ly(data_Xna, type = 'scatter', mode = 'lines') %>%
+  add_trace(x = ~date, y = ~avg_air_temp_f, line = list(color = "grey")) %>%
+  layout(showlegend = F, title = "Average Air Temperature in Champaign (Farenheit)",
+         yaxis = list(title="Degrees Farenheit"))
+time_series_faren
+
+time_series_cels <- plot_ly(data_Xna, type = 'scatter', mode = 'lines') %>%
+  add_trace(x = ~date, y = ~avg_air_temp_c, line = list(color = "grey")) %>%
+  layout(showlegend = F, title = "Average Air Temperature in Champaign (Celsius)",
+         yaxis = list(title="Degrees Celsius"))
+# time_series_cels
+
+ggplot(data = data_Xna, aes(x = date, y = avg_air_temp_f)) +
+  geom_line(color = "dark orange") + 
+  labs(title = "Average Air Temperature in Champaign") +
+  ylab("Average Temperature (F)") +
+  xlab("Date")
+
+```
+
+## Heat Index
+
+```{r}
+data_HI <- sqldf("
+SELECT date, avg_air_temp_f, avg_rel_hum, month
+FROM data_Xna
+")
+
+# Bound of avg_rel_hum = [0,100] (only have vals > 100%)
+large_rh = grep(T, data_HI$avg_rel_hum > 100)
+# slice(data_HI, large_rh)
+data_HI$avg_rel_hum[large_rh] = 100 
+
+data_HI$heat_index <- heat.index(t = data_HI$avg_air_temp_f,
+                                 rh = data_HI$avg_rel_hum,
+                                 temperature.metric = "fahrenheit")
+
+# the 85th percentile
+heat_index_calc <- data_HI %>%
+  filter(month == "7" | month == "8") %>%
+  filter(date >= "1990-01-01" & date <"2021-01-01")
+
+HI_index = quantile(heat_index_calc$heat_index, 0.85)
+HI_index
+```
+
+The local 85th percentile = 83
+
+```{r, echo=FALSE}
+## Calculate the heat index (RH-adjusted temperature) time series for the two locations
+
+time_series_RH <- ggplot(data_HI, aes(x=date, y=avg_rel_hum)) +
+  geom_line(color="blue", size=0.5) +
+  ggtitle("Relative Humidity") 
+time_series_HI <- ggplot(data_HI, aes(x=date, y=heat_index)) +
+  geom_line(color="orange",size=0.5) +
+  geom_hline(yintercept=HI_index, linetype="dashed", color = "black", size=0.5) +
+  geom_text(aes(as.Date("1989-02-16"), HI_index,label = HI_index, vjust = -1, hjust = 1)) +
+  ggtitle("Heat Index")
+
+# time_series_RH 
+# time_series_HI
+datar <- data_Xna %>%
+  filter(year == 2010) %>%
+  arrange(desc(month))
+datar$month <- ordered(datar$month)  
+ggplot(datar, aes(x = avg_air_temp_f, y = month)) +
+  geom_density_ridges_gradient() + theme_ridges() +
+  labs(title = 'Temperature of 2010 (Champaign)') + 
+  xlab("Average Temperature (Farenheit)")
+
+# interactive version
+time_series_HI_2 <- plot_ly(data_HI, type = 'scatter', mode = 'lines') %>%
+  add_trace(x = ~date, y = ~heat_index, line = list(color = "Orange")) %>%
+  add_trace(x = ~date, y = ~HI_index, line = list(shape = "linear", color = "black", dash = 'dash')) %>%
+  layout(showlegend = F, title = "Heat Index Interactive Time Series",
+         yaxis = list(title="HI"))
+time_series_HI_2
+
+```
+
+## Ridge Regression plot
+```{r}
+hi_ridge <- data_HI %>%
+  # filter(year(date) == 2010) %>%
+  arrange(date) %>%
+  mutate(month = month(date))
+hi_ridge$month <- ordered(hi_ridge$month)  
+ggplot(hi_ridge) +
+  geom_density_ridges_gradient( aes(x = heat_index, y = month)) + theme_ridges() +
+  geom_vline(xintercept = HI_index) +
+  labs(title = 'Heat Index (Champaign)') + 
+  xlab("Heat Index")
+```
+
+
+# Variables
+
+Determine the occurrences of heat wave:  
+By definition, a heat wave is declared when HI > 85th percentile for 2 or more consecutive days.
+
+```{r}
+data_HW_setup <- data_HI %>%
+  mutate(heat_index_85p = heat_index >= HI_index) %>% # heat_index_85p = T if heat_index > 85th
+  select(date, heat_index, heat_index_85p) %>%
+  filter(month(date) < 11 & month(date) > 4) %>% # within the hottest 6 months for easier look
+  filter(heat_index_85p == T)
+
+dates = data_HW_setup$date
+sect = rep(-1,length(dates))
+sect_index = 0
+sect[1] = sect_index
+for (day_index in (2:(length(dates)))) {
+  curr = dates[day_index]
+  yest = dates[day_index - 1] 
+  tmrw = dates[day_index + 1]
+  
+  if(curr == (yest + 1)) { # if consec, add to section
+    sect[day_index] = sect_index
+  }
+  else if(curr == (tmrw - 1)) { # if new consecutive, create and add new section
+    sect_index = sect_index + 1
+    sect[day_index] = sect_index
+  }
+}
+
+data_HW_setup$section <- sect
+data_HW <- data_HW_setup %>% filter(section >= 0) %>%
+  select(date, heat_index, section)
+
+head(data_HW,8)
+```
+
+### Pulses
+
+Number of Heat Waves per Year.
+
+```{r, echo=FALSE}
+# count number of days for each heat wave occurrence
+pulse_hw <- data_HW %>% 
+  # count(section)
+  group_by(year = year(date)) %>%
+  count(section) 
+
+# count number of heat waves for each year
+pulse_hw_counts <- pulse_hw %>%
+  group_by(year) %>%
+  count(year)
+
+# head(pulse_hw_counts)
+
+pulse_plot <- ggplot(data = pulse_hw_counts, aes(x = year, y = n)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  
+  geom_hline(yintercept=mean(pulse_hw_counts$n), linetype="dashed", color = "black", size=0.2) +
+  # geom_text(aes(x=pulse_hw_counts$year[1],y=mean(pulse_hw_counts$n),label = mean(pulse_hw_counts$n),2), vjust = -1, hjust = 1)) +
+  
+  labs(title="Pulses", x="Year", y = "Counts")
+```
+
+### Intensity
+
+Mean excess heat index above threshold for each year.
+
+```{r, echo=FALSE}
+intensity_hw <- data_HW %>%
+  group_by(year = year(date)) %>%
+  summarize(mean_intensity = mean(heat_index - HI_index))
+
+# head(intensity_hw)
+
+intensity_plot <- ggplot(data = intensity_hw, aes(x = year, y = mean_intensity)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_hline(yintercept=mean(intensity_hw$mean_intensity), linetype="dashed", color = "black", size=0.2) +
+  labs(title="Mean Intensity (Excess Heat Index)", x="Year", y = "Intensity")
+```
+
+### Duration
+
+Mean duration of a heat wave per year.
+
+```{r, echo=FALSE}
+colnames(pulse_hw) = c("year","section","days")
+duration_hw <- pulse_hw %>%
+  group_by(year) %>%
+  summarise(mean_duration = mean(days))
+
+# head(duration_hw)
+duration_plot <- ggplot(data = duration_hw, aes(x = year, y = mean_duration)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_hline(yintercept=mean(duration_hw$mean_duration), linetype="dashed", color = "black", size=0.2) +
+  labs(title="Mean Duration", x="Year", y = "Duration")
+```
+
+### Season Length
+
+The number of days between the start and end of a heat wave.
+
+```{r, echo=FALSE}
+season_hw <- data_HW %>%
+  group_by(year = year(date)) %>%
+  summarise(season_start = min(date), season_end = max(date),
+            season_length = season_end - season_start + 1)
+# head(season_hw)
+
+season_plot <- ggplot(data = season_hw, aes(x = year, y = season_length)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_hline(yintercept=mean(season_hw$season_length), linetype="dashed", color = "black", size=0.2) +
+  labs(title="Season Length", x="Year", y = "Days")
+```
+
+
+### Joined Information
+
+```{r}
+season_hw2 <- season_hw %>%
+  select(year, season_length)
+
+important_factors <- pulse_hw_counts %>%
+  rename("pulses" = "n") %>%
+  left_join(intensity_hw, by = "year") %>%
+  left_join(duration_hw, by = "year") %>%
+  left_join(season_hw2, by = "year")
+
+important_factors
+
+# unique(important_factors$year)
+par(mfrow = c(2,2))
+# pulse_plot
+# intensity_plot
+# duration_plot
+# season_plot
+
+library(gridExtra)
+grid.arrange(pulse_plot,intensity_plot, duration_plot, season_plot, nrow=2)
+
+
+
+
+## Finding initial params for nleqslv
+# lambda = E[pulses]
+# mu = 1/E[intensity]
+# theta = 1/E[duration]
+mean(important_factors$pulses) 
+1/mean(important_factors$mean_intensity) # inverse for initial ests 
+1/mean(important_factors$mean_duration) # inverse for initial ests
+```
+
+Unusual Findings:  
+- No heatwaves in 2004, 2008  
+- Though 1997 only had 1 heat wave of 2 days, it was also the most intense year  
+
+
+
+```{r}
+group = NA
+group[important_factors$year < 2000] = 1 #red
+group[important_factors$year >= 2000 & important_factors$year < 2010] = 2 #blue
+group[important_factors$year >= 2010] = 3 #purple
+
+pairs(important_factors[2:5], pch = 18, col = c("red", "steelblue", "purple")[group])
+```
+
+TODO: Read article, check vars and corr for each variable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
