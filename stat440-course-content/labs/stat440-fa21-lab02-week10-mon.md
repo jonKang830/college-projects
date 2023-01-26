@@ -1,0 +1,28 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week10 Lab02 Mon
+### Only the driver should submit this assignment into their individual student repo. Save the filename as lab02-week10-mon-netID.Rmd (or .ipynb for Python users). Then render this file to .html when completed. 
+#### Both .Rmd/.ipynb and .html files must be submitted by 11:00 am. Any lab submitted after 11:00 am will be deducted 1 point for being late.
+
+**#1** Using Markdown syntax, make a numbered list with the first and last names of everyone at your station. Your name should appear in italic and bold text.
+
+**#2** Which of the following are data validating strategies? Make your answers bold.
+
+a. Computing summary statistics
+
+b. Removing duplicate observations
+
+c. Filtering and arranging
+
+d. Correcting misspelled words
+
+**#3** Using a programming language, import the US State-level COVID-19 Historical Data from the New York Times and the Harvard's US Presidential Election Data using the data URLs [covid data URL](https://github.com/nytimes/covid-19-data/raw/master/us-states.csv) and [election - GHE data URL](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/us-presidential-election-data.csv) or [election - Box data URL](https://uofi.box.com/shared/static/qmhzgom3e1y0lnqd720rnbhp34xyfd6d.csv). Now, print the structure for each dataset.
+
+- Data description: The "covid" dataset (a .csv file) contains the number of COVID-19 cases and deaths per state as a time series. **This data is updated daily.** The "election" data (a .csv file) contains how each state voted in the each US Presidential Election and the number of votes each candidate received along with their political party affiliations. The candidate receiving the most votes can be considered as the winner of that state along with their political party. In other words, the state's political party affiliation is based on the candidate who who received the most votes for that state.
+
+**#4** Beginning with the "covid" data imported in **Problem 1**, answer the following question:
+
+- Which states are in the top 10 for the largest number of positive cases of COVID-19 (at its most recent date)? 
+
+**Your question should be answered in complete sentence(s) in Markdown syntax, and the resulting tidyverse code and data print out should serve as evidence.**
+
+**#5** Using a programming language, combine the imported "covid" data with the imported "election" data using an inner join - such that there is only one candidate (the one who received the most votes) for each state and only states that are common to both datasets. Now, print the first 10 observations of the combined data. **Hint: Keep in mind that this inner join will only make sense for the most recent date of COVID-19 data.**

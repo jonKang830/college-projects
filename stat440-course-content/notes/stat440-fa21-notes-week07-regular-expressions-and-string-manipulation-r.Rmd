@@ -1,0 +1,167 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 07 Notes
+### Created by Christopher Kinson
+
+
+***
+
+### Table of Contents
+
+- [Regular Expressions and String Manipulation](#regex)  
+  - [Examples with City of Urbana's Rental Inspection Grades Listing Data](#examples)
+
+***
+
+
+## <a name="regex"></a>Regular Expressions and String Manipulation
+
+In this section, we discuss typical operations for string manipulation and subsetting based on characters. Character strings can be quite difficult to wrangle. This difficulty may be due to character encoding and differences in how computers interpret strings. One alleviation of this difficulty was conceptualized in the 1950s by Stephen Kleene called regular expressions (or regex for short). A regular expression is a standardized pattern for finding strings and characters. Regex exists separate from programming languages (much like SQL) and is usually incorporated via a library or module. 
+
+Regex can be used to pick out or match certain characters in a character vector, and this is helpful for subsetting strings. Regex can be used in R within the `tidyverse` package thanks to the `stringr` package. Read more here [R for Data Science - Strings](https://r4ds.had.co.nz/strings.html) and [Tidyverse's stringr](https://stringr.tidyverse.org/). Below is a table containing common regex syntax for finding characters and strings. The table's example is the following sentence: 
+
+    "Friends of the Geese are hosting a memorial service Saturday for the 175 geese killed this week by the Urbana Park District in its 'charity harvest.'"
+
+Regex Syntax | Explanation | Matching String Found
+---|---|---|
+\\\\w |any letter or digit | "FriendsoftheGeesearehostingamemorialserviceSaturdayforthe175"
+\\\\d | any digit | "175"
+[\\\\.\\\\'] | only the period and apostrophe | "'.'"
+[^\\.] | anything but not the period | "Friends of the Geese are hosting a memorial service Saturday for the 175 geese killed this week by the Urbana Park District in its 'charity harvest'"
+[A-M] | anything with capital letters A-M| "FriendsGeeseDistrict"
+s+ | any words or characters with the letter s and anything after the s| "FriendsGeesehostingservicegeesethisDistrictitsharvest"
+s+\|S+ | any words or characters with the letter s or capital S and anything after the s or capital S | "FriendsGeesehostingserviceSaturdaygeesethisDistrictitsharvest"
+e{2} | any word with exactly two consecutive letter e| "Geesegeeseweek"
+
+See https://regexr.com/ for more regex syntax and opportunities to test out regular expressions.
+
+Below is an R code chunk as evidence of the regex usage along with some **stringr** package functions. These **stringr** functions are vectorized and return a value for each element in the input vector:
+
+- `str_extract`: extracts the matched pattern
+
+- `str_extract_all`: extracts multiple matched patterns (returns either a list `simplify=TRUE` or a matrix `simplify=FALSE`)
+
+- `str_remove`: removes the matched pattern
+
+- `str_remove_all`: removes multiple matched patterns
+
+- `str_replace`: replaces the matched pattern with another string
+
+- `str_replace_all`: replaces multiple matched patterns with another string
+
+- `str_count`: counts the number of times the pattern is matched
+
+- `str_detect`: returns TRUE when the pattern is matched and FALSE otherwise
+
+**Notice that we need to use not one escape character `\`, but two `\\` to access special regex characters or explicit punctuation in R.**
+
+```{r}
+library(tidyverse)
+ss <- "Friends of the Geese are hosting a memorial service Saturday for the 175 geese killed this week by the Urbana Park District in its 'charity harvest.'"
+str_extract(ss, "\\w")
+str_extract_all(ss, "\\w")
+str_extract_all(ss, "[^\\.]")
+str_remove(ss, "\\.\\'")
+str_remove(ss, "\\d")
+str_remove_all(ss, "\\d")
+str_remove(ss, "[A-M]")
+str_remove_all(ss, "[A-M]")
+str_replace(ss, "s+|S+", "Que")
+str_replace_all(ss, "s+|S+", "Que")
+str_count(ss, "e{2}")
+str_detect(ss, "[A-M]")
+```
+
+Read the documentation for each of the above **stringr** functions, because they have some additional arguments that may be helpful.
+
+### <a name="examples"></a>Examples with City of Urbana's Rental Inspection Grades Listing Data
+
+Working with the City of Urbana's [Rental Inspection Grades Listing Data as tab-separated .txt](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data03.txt), we can finally explain what we did to the "Mappable Address" column in the Week 04 notes.
+
+```{r}
+RentalsData <- read_delim("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data03.txt?token=AAACHCLZW5CP4CHXFN6F5YDBQWJ36", delim="\t")
+
+slice_head(RentalsData, n=10)
+```
+
+First, we used **stringr**'s `str_split()` function to separate the character strings originally found in "Mappable Address" into 3 columns, where `\n` is the separator that determined how to split them up.
+
+```{r}
+Coordinates<-str_split(RentalsData$`Mappable Address`, "\\\n", simplify = TRUE)
+head(Coordinates, n=10)
+tail(Coordinates, n=10)
+```
+
+Notice that several of the first few addresses in `Coordinates` are written with the string "1 2" in the first column. These are addresses which have "1/2" units - a common designation for apartments or very small residences. We can use `str_replace()` to find all "1 2" strings and replace them with `1/2" strings.
+
+```{r}
+Coordinates[,1] <- str_replace(Coordinates[,1],"1\\s2","1/2")
+head(Coordinates)
+tail(Coordinates)
+```
+
+We can see some elements of the second column of `Coordinates` are not simply "Urbana, IL", but contain specific apartment numbers or unit numbers.
+
+```{r}
+sum(!is.na(str_extract(Coordinates[,2],"[^Urbana\\,\\sIL]")))
+```
+
+Let's mutate with 2 new columns: City which should always be equal to "Urbana" and State which will always equal "IL" and de-select the second column. This means that Coordinates will now have 4 columns total.
+
+```{r}
+Coordinates <- as_tibble(Coordinates) %>%
+  mutate(City="Urbana", State="IL") %>%
+  select(-V2)
+
+head(Coordinates)
+
+tail(Coordinates)
+```
+
+Now, there is trouble with the now second column of `Coordinates` (which is now a **tibble**). 
+
+Do *you* see trouble? 
+
+You probably do not recognize the issue, but some elements of the second column have the GPS coordinates - representing latitude and longitude - in the incorrect position. Urbana's centralized coordinates are 40.10972, -88.204167 (i.e. lat,lon).
+
+```{r}
+print(slice_head(Coordinates, n=30),width=Inf)
+
+print(slice_tail(Coordinates, n=30),width=Inf)
+```
+
+This means that it's best to place the numbers beginning with "40" in the first position before the comma, then the numbers beginning with "-88" in the second position.
+
+```{r}
+Coordinates00 <- str_remove_all(Coordinates$V3, "\\)|\\,|\\(")
+Coordinates000 <- str_split(Coordinates00, " ", simplify = TRUE)
+RentalsData <- RentalsData %>%
+  mutate(Coordinates01 = as.numeric(Coordinates000[,1]),
+Coordinates02 = as.numeric(Coordinates000[,2]))
+
+print(slice_tail(RentalsData, n=10),width=Inf)
+```
+
+We just split the coordinates as they originally appeared, but we still have not corrected the coordinates. To do this, we can use the famous `ifelse()` function (see Week 06 notes).
+
+```{r}
+c01 <- ifelse(RentalsData$Coordinates01<0,RentalsData$Coordinates02,RentalsData$Coordinates01)
+c02 <- ifelse(RentalsData$Coordinates02>0,RentalsData$Coordinates01,RentalsData$Coordinates02)
+
+RentalsData2 <- RentalsData %>%
+  mutate(Latitude = c01, Longitude = c02, City = Coordinates$City, State = Coordinates$State) %>%
+  select(-c(`Mappable Address`,Coordinates01,Coordinates02))
+
+print(slice_tail(RentalsData2, n=10),width=Inf)
+```
+
+Trouble is no more!
+
+#### END OF NOTES

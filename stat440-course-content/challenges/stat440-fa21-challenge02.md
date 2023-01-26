@@ -1,0 +1,76 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+
+## Challenge02
+### Due: Wednesday October 13, 2021 11:59 pm US Central Time
+#### Created by Christoper Kinson
+
+Grading Rubric (per question):  
+2 points if complete and correct  
+1 point if incomplete or incorrect  
+0 points if no attempt made  
+
+
+**Retrieving your work**
+
+This and all future challenge .md files are written in Markdown. The .md file is rendered as an .html file for easier viewing. This and all future challenge assignments are located in the **challenges** directory within the **stat440-fa21-course-content** repo, i.e. **stat440-fa21-course-content/challenges** in GHE. It is always recommended that you **pull** (or refresh) the **stat440-fa21-course-content** repo to ensure that you have the most updated version of all course content including the challenge assignments. After pulling (or refreshing) the **stat440-fa21-course-content** repo, the challenge file will be in the challenge directory. Once you have accessed the .md file, copy all text from the .md file and paste all text into your reproducible document file (either .Rmd or .ipynb file). 
+
+**Submitting your work**
+
+In your individual student repo (named as your netID), you are to submit ***two*** files:
+
+a. Your reproducible document file (either .Rmd or .ipynb file) which should be saved as challenge##-netID.Rmd or challenge##-netID.ipynb depending on your preferred software. For example, my challenge 01 file would be saved as challenge01-kinson2.Rmd.
+
+b. Your rendered reproducible document file (.html) which should be saved as challenge##-netID.html. For example, my challenge 01 file would be saved as challenge01-kinson2.html.
+
+**Do not place your files in a sub-directory (or folder).** You have an unlimited number of submissions, but only the latest proper submission (commit and push) will be viewed and graded. You are allowed to only use one software language per challenge file. This means that you cannot mix software languages (R and Python) in one single challenge file. **Remember the .Rmd (or .ipynb) file needs to render properly to .html before submitting.** 
+
+
+***
+
+Undergraduates are expected to complete the problems **#1-#8**. Graduate students are expected to complete all problems.
+
+**The following problems should be completed by you as an individual. If any problem asks you a particular question, be sure to answer it completely (with code, written sentences, or both). Written sentences should not appear in code chunks or code cells. Written sentences should appear in Markdown syntax unless specifically stated otherwise.**
+
+***Do not change anything in this file above the double line. Doing so will prevent your challenge from being graded.***
+
+***
+***
+
+### Use only one programming language for this entire challenge assignment. Use the URLs to access the data (if any). No local files allowed.
+
+**#1** Using Markdown syntax, create a numbered list with your first name in normal text as the first item and your last name in italic text as the second item.
+
+
+
+**#2** Import the dataset(s) below using one programming language and the data URL. After importing, print the resulting last 10 rows of each dataset. Read the data key(s) and data description(s) for more information about that particular dataset.
+
+- Speed Dating Data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/blob/master/data/speed-dating-data.csv or Box data URL https://uofi.box.com/shared/static/w8vjq29rig8pdvussyg3997h1gwhkimq.csv  
+  - Data description: the dataset (a .csv file) contains a total of 162 observations and 59 columns. The observations are four minute dates that individuals participated in for a speed dating experiment conducted by the Columbia Business School. The columns contain demographic information about the daters and datees as well as survey responses about the dater, dater's dating preferences and scores that the dater gave the datee (datee is defined as "partner"). The datee is the person of the opposite sex who joined the table for the speed date. Technically, the data should contain information from the perspective of the datee when the gender variable changes; thus making them now the dater. A match occurs when both the dater and the datee agree to go on a second date (after the experiment is over). The original sources are Ray Fisman and Sheena Iyengar.  
+  - Data key URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/blob/master/data/speed-dating-data-key.doc  
+
+
+
+**#3** Using the sentence about the geese below, a programming language, and string manipulation/regex to extract only the words of the sentence excluding punctuation such that each word appears as a row in a matrix.
+
+```
+#if using R
+sentence <- "Friends of the Geese are hosting a memorial service Saturday for the 175 geese killed this week by the Urbana Park District in its 'charity harvest.'"
+
+#if using Python
+import pandas as pd
+import numpy as np
+sentence = pd.Series(["Friends of the Geese are hosting a memorial service Saturday for the 175 geese killed this week by the Urbana Park District in its 'charity harvest.'"])
+```
+
+
+
+**#4** Among the matches, which iids scored the top 10 highest date_scores (an individual's date_score equals the sum of attr, sinc, intel, fun, amb, shar, like, and prob)? Use the imported data in Problem **#2**, the information in the speed dating data key, and a programming language applying data management concepts to answer the questions. **Your answer should be in Markdown syntax and a code chunk should show the result as evidence.**
+
+
+
+**#5** How many interracial (dater and datee race is not the same) matches occur? Use the imported data in Problem **#2**, the information in the speed dating data key, and a programming language applying data management concepts to answer the questions. **Your answer should be in Markdown syntax and a code chunk should show the result as evidence.**
+
+

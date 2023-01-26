@@ -1,0 +1,181 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 05 Notes
+### Created by Christopher Kinson
+
+
+***
+
+### Table of Contents
+
+- [Data Reduction](#data-reduction)  
+  - [Filtering rows](#filtering)  
+  - [Slicing rows](#slicing)  
+  - [Selecting columns](#selecting)  
+  - [Dropping missing values](#dropping)
+- [Data Expansion](#data-expansion)  
+  - [Renaming columns](#renaming)  
+  - [Mutating columns](#mutating)  
+  
+
+***
+
+
+## <a name="data-reduction"></a>Data Reduction
+
+Below, I describe a few techniques that achieve data reduction also known as subsetting. Data reduction tasks, from a data wrangling perspective, are done by data workers so often that they become second nature. All methods in these notes belong in the tidyverse package (specifically dplyr) and are discussed in greater detail and with more examples in the Introduction to dplyr vignette https://cran.r-project.org/web/packages/dplyr/vignettes/dplyr.html. *String manipulation is not discussed this week, but will be discussed in Week 07.* 
+
+### <a name="filtering"></a>Filtering rows
+
+We can select rows or observations through conditions with the `filter()` function in the tidyverse. Working with the City of Urbana's [Rental Inspection Grades Listing Data as comma-separated .csv](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv), we can filter only the rows that have a grade of F.
+
+```{r}
+library(tidyverse)
+rental_data <- read_csv("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data01.csv?token=AAABJGZWH3S35ZU4POB76P3BJJHYE", col_types = cols(`Inspection Date` = col_date(format = "%m/%d/%Y"), 
+        `Expiration Date` = col_date(format = "%m/%d/%Y")))
+
+rental_data %>%
+  filter(Grade=="Class F")
+```
+
+We can filter only the rows that have a grade of A or F (where the pipe key `|` means "or").
+
+```{r}
+rental_data %>%
+  filter(Grade=="Class A" | Grade=="Class F")
+```
+
+We filter the rows corresponding to the a grade of A and expiration dates before the year 2021.
+
+```{r}
+rental_data %>%
+  filter(Grade=="Class A", `Expiration Date`<"2021-01-01") %>%
+  arrange(`Expiration Date`)
+```
+
+### <a name="slicing"></a>Slicing rows
+
+Filtering rows works well when we know the data columns and values by name. But if that information is not as readily available, we can reduce the data using values that represent the row location via the `slice()` function.
+
+For the City of Urbana's Rental Inspection Grades Listing Data, we can slice rows 1000 to 1111.
+
+```{r}
+rental_data %>%
+  slice(1000:1111)
+```
+
+We can show the first few rows with `slice_head()` or last few rows with `slice_tail()`.
+
+```{r}
+rental_data %>%
+  slice_head(n=10)
+
+rental_data %>%
+  slice_tail(n=10)
+```
+
+We can also show the smallest parcel number (`slice_min()`) or largest parcel number (`slice_max()`).
+
+```{r}
+rental_data %>%
+  slice_min(`Parcel Number`)
+
+rental_data %>%
+  slice_max(`Parcel Number`)
+```
+
+### <a name="selecting"></a>Selecting columns
+
+We can select certain columns using the `select()` function. Selecting can be helpful when we don't need all of a dataset's original columns.
+
+```{r}
+rental_data %>%
+  select(`Mappable Address`)
+
+rental_data %>%
+  select(`Parcel Number`:`Mappable Address`)
+```
+
+We can de-select (drop) columns as well with the `minus` sign.
+
+```{r}
+rental_data %>%
+  select(-c(`Mappable Address`, `License Status`, ends_with("Date")))
+```
+
+Or de-select columns with negation (where the pipe key `!` means "not").
+
+```{r}
+rental_data %>%
+  select(!c(`Mappable Address`, `License Status`, ends_with("Date")))
+```
+
+The `ends_with()` function and its relative, `starts_with()` are **dplyr** helper functions that scan the columns of the data and only selects the column names that end with or start with the set of characters in the string.
+
+### <a name="dropping"></a>Dropping missing values
+
+Missing values are often represented as `NA` (not available), `NaN` (not a number), ".", or " " in data. Missing values are slightly different from null values and unknown values. A missing value could be unknown or NULL or an actual value that just never made it into the data frame. 
+
+Null values (`NULL`) are undefined values often used in R coding to create empty objects. 
+
+Unknown values are usually noted or marked as "unknown" in a dataset. Older data might note a value as "9999" or "99999" to represent an unknown value. Unknown values are not necessarily missing when they are represented as "unknown" or "9999" within a dataset.
+
+How data workers handle missing values will vary. Imputation is a process of replacing missing values with real values, and this process requires lots of care, theory, and background knowledge about the non-missing data. For real data analysis, imputation may not make much sense, since the goal is to discuss the observed data. Here's a blog with several reviews of the standard textbooks in the field of missing data: https://thestatsgeek.com/stats-books/missing-data-books/. We won't discuss imputation in any meaningful way in this course.
+
+Instead, I'll mention that there is a tidyverse function for removing NA values called `drop_na()` if we ever need to do so. If you don't know a value is missing or not, you can use the base R function `is.na()`.
+
+```{r}
+sum(is.na(rental_data$`Expiration Date`))
+
+rental_data %>%
+  drop_na(`Expiration Date`)
+```
+
+
+***
+
+
+## <a name="data-expansion"></a>Data expansion
+
+The methods in this section will be making the dataset larger in some way, usually by adding new columns of information. This does not include combining data, which will be discussed in Week 10.
+
+### <a name="renaming"></a>Renaming columns
+
+Renaming variables can be accomplished using `rename()` function and serves as a convenient was to change a column's name without an assignment operator. We place the new name on the left side of the `=` sign and the old name on the right side.
+
+```{r}
+colnames(rental_data)
+
+rental_data %>%
+  rename(full_address=`Mappable Address`)
+
+colnames(rental_data)
+```
+
+### <a name="mutating"></a>Mutating columns
+
+The real power of data wrangling and to a larger extent, data science, is the ability to create columns of new information. Often, this new information is really just a function of existing information. But, usually that new information is what is needed for a later analysis. Recall that the work of data management and wrangling (read: STAT 440) is to do all the data work prior to an actual data analysis. 
+
+The `mutate()` function is what we'll use to create the new information and make that new information appears in the data set. Suppose we want to represent the Grades of the inspections as numbers and create a proportion from that new numeric grade. To accomplish this we might do:
+
+```{r}
+rental_data %>%
+  mutate(grade_n = ifelse(Grade=="Class N", 1, Grade), 
+         grade_f = ifelse(Grade=="Class F", 2, grade_n),
+         grade_d = ifelse(Grade=="Class D", 3, grade_f),
+         grade_c = ifelse(Grade=="Class C", 4, grade_d),
+         grade_b = ifelse(Grade=="Class B", 5, grade_c),
+         grade_numeric = as.numeric(ifelse(Grade=="Class A", 6, grade_b)),
+         grade_prop = grade_numeric/6)
+```
+
+That's quite powerful! We mutated the data by using columns that we were in the process of mutating!!
+
+#### END OF NOTES

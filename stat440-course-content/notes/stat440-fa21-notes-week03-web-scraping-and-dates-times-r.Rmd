@@ -1,0 +1,259 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 03 Notes
+### Created by Christopher Kinson
+
+
+***
+
+### Table of Contents
+
+- [Assigning objects](#assigning-objects)  
+- [Web scraping for accessing and importing data](#web-scraping)  
+- [Handling dates and times](#handling-dates-and-times)  
+
+
+***
+
+
+## <a name="assigning-objects"></a>Assigning objects
+
+In R, object assignment is done with an assignment operator, `<-` as in `x<-10`. The equal sign also performs object assignment `x=10` in R. 
+
+We've already assigned objects in R. If you need proof, review the notes from Week 02. With assigning objects, one important thing to notice is the acceptable naming conventions of your programming language. As mentioned in Tip 1, most programming languages won't like kebab-case. Thus, I advise you to use one of the following cases: camelCase, PascalCase, or snake_case. 
+
+
+***
+
+
+## <a name="web-scraping"></a>Web scraping for accessing and importing data
+
+Web scraping can be a fun way to explore information provided on a website in order to store it and analyze it for statistical/academic purposes. 
+
+**Because the data contained in the City of Urbana's Data Portal is part of the US government, students outside of the US may have limited or no access based on their current government policies. Regardless, the web scraping section of the notes are still conceptually important. All students in this course are expected to learn and demonstrate their understanding of the concepts covered in these notes.**
+
+Recall, [City of Urbana's Rental Inspection Grades Listings Data - structured comma-separated](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv) that I like so much. Notice that when we access and import it (the structured comma-separated file), we can get a better view of the columns.
+
+```{r webscraping01}
+library(tidyverse)
+
+rental_data <- read_csv("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data01.csv?token=AAABJGZ6OHL3GMHOK3DVMSTBGEUWS") 
+
+head(rental_data)
+```
+
+This data is about housing that people pay rent money for and the grades of these housing units upon inspection. The specific columns are: Property Address, Parcel Number, Inspection Date, Grade, License Status, Expiration Date, and Mappable Address. 
+
+```{r webscraping02}
+colnames(rental_data)
+```
+
+If you've lived long enough to understand property, then you know that every county across America has public records of almost all properties and their owners. This includes Champaign County. These property records are stored by the [Office of the Champaign County Assessor](http://www.co.champaign.il.us/ccao/assessor.php). These housing units belong to property owners who may or may not live at the same address as the property they are renting. What if we were to look online, find the owner's name and address to see if it matches that of the property they're renting out? 
+
+First, let's go to the Property Record Search portion of the county's website. See image below.
+
+![](https://uofi.box.com/shared/static/3sf6f8djudewb0ch9zw8pdmmj6y1vuj9.png)
+
+Which takes us here. See image below.
+
+![](https://uofi.box.com/shared/static/tkuofhfr3cytzwce9xovnat5qcmg9dmy.png)
+
+The property record search allows for searching by parcel number. Our dataset has a column by the exact same name. So let's try searching the records for the first parcel number in our dataset: 922116177018. See image below.
+
+![](https://uofi.box.com/shared/static/mshnwcds23ee9u2h7g1lm7g7p9v0d7th.png)
+
+Running that search takes us here. See image below.
+
+![](https://uofi.box.com/shared/static/k6m6zjmy6c17fqfafd916j8denzhuc02.png)
+
+The owners of parcel number 922116177018 don't share the same address as the rental property address, at least not on record.
+
+Doing this would be tedious to do for all 1730 properties in this dataset. Web scraping is a data accessing tool that can automate the process of retrieving property owner information from the county's website.
+
+We will use the **rvest** package within the **tidyverse**, by Hadley Wickham, to scrape or harvest data from the Office of the Champaign County Assessor's website. I am basing the notes below on ["Harvesting the web with rvest"](https://rvest.tidyverse.org/articles/harvesting-the-web.html), an **rvest** vignette written by Demytro Perepolkin.
+
+We're going to go directly to the table containing the Owner Name and Address shown above and right-click on the section where the owner names appear. Click "Inspect" or "Inspect Page" and pay attention to the text highlighted in the image below.
+
+![](https://uofi.box.com/shared/static/90k8q8ppl13vv0yav8h6m9ncknp1i7jn.png)
+
+This text (which is a series of HTML tags) is necessary for us to extract the owner names with **rvest**. The tags represent HTML reference points for how to identify the the information we truly want, which is in the table of Owner Name and Address. To figure out which html tags are going to get us what we need will take some trial and error. That's okay, but takes up time. Eventually we have our desired result (took me 30 minutes to try out several combinations of html tags) based on the two html tags: ".col-xs-4" and ".inner-value".
+
+```{r webscraping03a}
+library(rvest)
+
+prop1_url <- "https://champaignil.devnetwedge.com/parcel/view/922116177018/2020"
+
+html <- read_html(prop1_url)
+
+owners0 <- html_nodes(html, ".col-xs-4 .inner-value")
+
+html_text(owners0,trim=TRUE)
+```
+
+Nice!
+
+But there's a better way!!
+
+Let's use the SelectorGadget tool! The SelectorGadget tool (read about it and set it up in your browser selectorgadget.com) allows to inspect the particular part of the web page and better narrow down the html tags. This saves time and greatly reduces the effort of trial and error to grab the information in the Owner Name and Address section of the website.
+
+Using this tool, we selected the table we want and de-selected the Site Address portion of the table next to it. Doing so improved the SelectorGadget estimate of the html tags we *do* want (seen at bottom highlighted in blue).
+
+![](https://uofi.box.com/shared/static/as4pbwxnxdod2q1ah4aopn88im8xony2.png)
+
+This resulted in two html tags: ".col-xs-4:nth-child(3)" and ".inner-value". Trying those two tags out results in the more direct Owner Name and Address information.
+
+```{r webscraping03b}
+owners <- html_nodes(html, ".col-xs-4:nth-child(3) .inner-value")
+
+html_text(owners, trim=TRUE)
+```
+
+Great! 
+
+We used web scraping to grab the first property's owner names according to the Parcel Number 922116177018, and the result shows the owner name and address separated by new line characters `\n`. Again, we see this information verifies that the owner address is not the same as the rental property's address.
+
+Now, let's do this for all properties. The key will be to loop or vectorize this process. *Actually in the chunk below I am only doing this for the first 5 properties since this process takes a long time for all 1730 properties.* The most important thing that is changing with each iteration of a loop should be the parcel number. We can use an index-controlled loop such that that the index value of parcel number column increments until we reach 1730. Putting it all together, we yield the following vector of owner names and address. *We'll talk more about looping and speeding up loops with vectorization in Week 06.*
+
+```{r webscrapingloop}
+prop_url <- paste0("https://champaignil.devnetwedge.com/parcel/view/",rental_data$`Parcel Number`,"/2020")
+
+owners_addresses <- rep(0, length(prop_url))
+
+for (i in 1:5){ #running only the first 5 parcels
+  owners_addresses[i] <- html_text(html_nodes(read_html(prop_url[i]),".col-xs-4:nth-child(3) .inner-value"),trim=TRUE)
+}
+
+head(owners_addresses) #takes a long time if you attempt all 1730 parcels
+```
+
+Below is a final note on web scraping.
+
+Sometimes people abuse this exploration and overdo it on web scraping, which is why certain aspects of web scrapers are illegal or at the least, frowned upon. When you web scrape be cautious of how often you are hitting a particular website. It might be best to do the scraping in chunks over a few days if you are attempting to gather lots of data.
+
+
+***
+
+
+## <a name="handling-dates-and-times"></a>Handling dates and times
+
+When a data set contains date and time information in the fields (columns), the dates and times may be correctly imported internally by the programming language, but misinterpreted externally by the users. Most programming languages, operating systems, and software internally store dates and times as a value in reference to some specific date. For example, in SAS, the reference date is January 1, 1960. In R and Python, internal dates and times are in reference to January 1, 1970. You may find it necessary to convert character strings into date values or re-format existing date values. 
+
+Below is a table of standard date and time formats that work across Python and R. For more information about your programming language's specific formatting for dates, see [Python with datetime module](https://www.w3schools.com/python/python_datetime.asp), [R with the tiyverse](https://r4ds.had.co.nz/dates-and-times.html), and [R with base R functionality](https://www.statmethods.net/input/dates.html). 
+
+Code | Meaning
+---|---
+\%a	| Abbreviated weekday name	
+\%A	| Full weekday name
+\%b	| Abbreviated month name	
+\%B	| Full month name
+\%c	| Date and time	
+\%d	| Day of the month (0-31)
+\%H	| Hours (24 hour)	
+\%I	| Hours (12 hour)
+\%j	| Day of the year numbered (000-366)
+\%m	| Month numbered (01-12)
+\%M	| Minute numbered (00-59)	
+\%p	| AM/PM
+\%S	| Second numbered (00-61)	
+\%U	| Week of the year starting on Sunday numbered (00-53)
+\%w	| Weekday starting on Sunday numbered (0-6)	
+\%W	| Week of the year starting on Monday numbered (00-53)
+\%y	| 2-digit year	
+\%Y	| 4-digit year
+\%z	| Offset from UTC	
+\%Z	| Time zone (character)
+
+Let's see this in action with the City of Urbana's [Rental Inspection Grades Listings Data - structured comma-separated file](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv). Let's focus on the Inspection Date and Expiration Date columns.
+
+```{r datestimes01}
+colnames(rental_data)
+
+rental_dates <- rental_data[,c(3,6)]
+
+str(rental_dates)
+
+typeof(rental_dates$`Inspection Date`)
+typeof(rental_dates$`Expiration Date`)
+```
+
+The two date columns are stored in R as character format or type (aka mode). What we want is for the date columns to be stored in R as date format which is a numeric type or mode. Because the `rental_dates` object exists in our environment with character format, we are going to **coerce** the character format to be date format.
+
+There's a few ways to handle date coercion in R: tidyverse's **lubridate** package, and base R's `as.Date()`. To handle coercion of character to both date and time (e.g. datetime) format, then we can use base R's `as.POSIXct()` function.
+
+Coercing character to date format using the **lubridate** package requires us to know how the character string of the date currently looks.
+
+```{r datestimes02}
+head(rental_dates)
+```
+
+Each column looks like a two-digit month, forward slash, two-digit day, forward slash, and four-digit year. Thus this is a month, day, year order, which means we can use the `mdy()` function. If it were another type, e.g., year, month day order then we could use `ymd()`. See the `?mdy` help page for more details including other **lubridate** date parsing functions.
+
+```{r datestimes03}
+rental_dates$InspectionDate2<-lubridate::mdy(rental_dates$`Inspection Date`)
+
+rental_dates$ExpirationDate2<-lubridate::mdy(rental_dates$`Expiration Date`)
+
+mode(rental_dates$InspectionDate2)
+mode(rental_dates$ExpirationDate2)
+
+typeof(rental_dates$InspectionDate2)
+typeof(rental_dates$ExpirationDate2)
+
+str(rental_dates)
+```
+
+The result shows that this is indeed a Date format and a numeric mode or type.
+
+If we were using base R to accomplish the same kind of coercion, we might use `as.Date()` in base R and the table of standard date formats above, paying attention to the literal order: two-digit month, forward slash, two-digit day, forward slash, and four-digit year.
+
+```{r datestimes04}
+rental_dates$InspectionDate3<-as.Date(rental_dates$`Inspection Date`, format = "%m/%d/%Y")
+
+rental_dates$ExpirationDate3<-as.Date(rental_dates$`Expiration Date`, format = "%m/%d/%Y")
+
+mode(rental_dates$InspectionDate3)
+mode(rental_dates$ExpirationDate3)
+
+typeof(rental_dates$InspectionDate3)
+typeof(rental_dates$ExpirationDate3)
+
+str(rental_dates)
+```
+
+For time values, we can use the tidyverse's **lubridate** package and its `hms()` function for hours, minute, seconds. The package also contains functions `hm()` and `ms()` for hours, minutes and minutes, seconds respectively. But these functions yield a format of Period, which is not ideal for handling differences in times (we may want to do that in the future). In base R, we can use the `as.POSIXct()` function to get the date and time. Alternatively, we should recall that RStudio has a GUI for importing data, and in that GUI, we can format columns to suit our needs. After previewing the columns, we can just copy the R code for that data import.
+
+```{r}
+time_vec <- c("10:50", "12:30 PM", "22:10")
+lubridate::hm(time_vec)
+str(lubridate::hm(time_vec))
+mode(lubridate::hm(time_vec))
+
+as.POSIXct(time_vec, format="%H:%M")
+str(as.POSIXct(time_vec, format="%H:%M"))
+mode(as.POSIXct(time_vec, format="%H:%M"))
+```
+
+There are other things we can do with dates and times such as only show the years of a date column or on the time of a datetime column.
+
+```{r datestimes05}
+head(format(rental_dates$InspectionDate3, "%Y"))
+str(format(rental_dates$InspectionDate3, "%Y"))
+mode(format(rental_dates$InspectionDate3, "%Y"))
+
+head(lubridate::year(rental_dates$InspectionDate2))
+str(lubridate::year(rental_dates$InspectionDate2))
+mode(lubridate::year(rental_dates$InspectionDate2))
+
+format(as.POSIXct(time_vec, format="%H:%M"), "%H:%M")
+```
+
+But pay attention to how the results are not the same mode for base R functionality vs tidyverse functionality.
+
+How do we make a character format into a numeric one?

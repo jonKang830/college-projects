@@ -1,0 +1,61 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week08 Lab02 Mon
+### Only the driver should submit this assignment into their individual student repo. Save the filename as lab02-week08-mon-netID.Rmd (or .ipynb for Python users). Then render this file to .html when completed. 
+#### Both .Rmd/.ipynb and .html files must be submitted by 11:00 am. Any lab submitted after 11:00 am will be deducted 1 point for being late.
+
+**#1** Using Markdown syntax, make a numbered list with the first and last names of everyone at your station. Your name should appear in italic text.
+
+Answers will vary, but must be a proper list with Driver's name in italic text.
+
+**#2** Values labeled as **"Unknown"** are exactly the same as missing values. If the text in bold is the word or phrase that makes the statement true, then write TRUE below in all caps. If the text in bold is the word or phrase that makes the statement false, then write FALSE below in all caps followed by a period, and write the correct term in bold text after the period. For example, FALSE. **newword.** 
+
+FALSE. Acceptable answers include **"NA", "NaN"**.
+
+**#3** Which names fit all of the following descriptions simultaneously (in this order): (i) are equal in length to the median name length, (ii) are in the top 50 most frequent over the last decade? **This set of names should be a unique set of names; no repeating names. No need to consider ties beyond 50 names.** Use the National Popular Baby Names Data, one programming language software, and the data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/popular-baby-names-national-data.csv or Box data URL https://uofi.box.com/shared/static/c2whskv4x21w9pok3qxfh2kdz7jxk1g4.csv to help you answer the question. A data description is below.
+
+  - The dataset (a .csv file) contains 658127 rows and 4 columns. The data is a combination of popular baby names by sex (F for female, M for male), frequency, and year from 2001 to 2020 in the US. The baby names come from Social Security records. Soon after a child is born in the US, the parent(s) file for a Social Security card. This data does not include baby names with frequencies less than 5. The original source is the Social Security Administration https://www.ssa.gov/oact/babynames/limits.html.
+
+```{r}
+library(tidyverse)
+baby_names_data <- read_csv("https://uofi.box.com/shared/static/c2whskv4x21w9pok3qxfh2kdz7jxk1g4.csv", 
+    col_types = cols(sex = col_character()))
+str(baby_names_data)
+
+b03 <- baby_names_data %>%
+  mutate(len=str_count(name), medianlen=median(len)) %>%
+  filter(len==medianlen, year > 2010) %>%
+  arrange(desc(freq)) %>%
+  slice_head(n=50)
+
+unique(b03$name)
+```
+
+**#4** Which names fit all of the following descriptions simultaneously (in this order): (i) boy names, (ii) a randomly selected year (using the programming language's randomization methods), (iii) in the top 50 most frequent names? Use the National Popular Baby Names Data, one programming language software, and the data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/popular-baby-names-national-data.csv or Box data URL https://uofi.box.com/shared/static/c2whskv4x21w9pok3qxfh2kdz7jxk1g4.csv to help you answer the question. A data description is below.
+
+  - The dataset (a .csv file) contains 658127 rows and 4 columns. The data is a combination of popular baby names by sex (F for female, M for male), frequency, and year from 2001 to 2020 in the US. The baby names come from Social Security records. Soon after a child is born in the US, the parent(s) file for a Social Security card. This data does not include baby names with frequencies less than 5. The original source is the Social Security Administration https://www.ssa.gov/oact/babynames/limits.html.
+
+```{r}
+baby_names_data %>%
+  filter(sex=="M", year==sample(year,1)) %>%
+  arrange(desc(freq)) %>%
+  slice_head(n=50)
+```
+
+**#5** Which names are five-letter palindromes in the year 2001? Use the National Popular Baby Names Data, one programming language software, and the data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/popular-baby-names-national-data.csv or Box data URL https://uofi.box.com/shared/static/c2whskv4x21w9pok3qxfh2kdz7jxk1g4.csv to help you answer the question. A data description is below.
+
+  - The dataset (a .csv file) contains 658127 rows and 4 columns. The data is a combination of popular baby names by sex (F for female, M for male), frequency, and year from 2001 to 2020 in the US. The baby names come from Social Security records. Soon after a child is born in the US, the parent(s) file for a Social Security card. This data does not include baby names with frequencies less than 5. The original source is the Social Security Administration https://www.ssa.gov/oact/babynames/limits.html.
+
+```{r}
+b05 <- baby_names_data %>%
+  filter(year==2001) %>%
+  mutate(name=tolower(name),len=str_count(name)) %>%
+  filter(len==5)
+
+b051 <- str_extract_all(b05$name, "\\w", simplify=TRUE)
+dim(b051)
+
+c15<-ifelse(b051[,1]==b051[,5],1,0)
+c24<-ifelse(b051[,2]==b051[,4],1,0)
+b052<-b051[c15+c24==2,]
+paste0(b052[,1],b052[,2],b052[,3],b052[,4],b052[,5])
+```

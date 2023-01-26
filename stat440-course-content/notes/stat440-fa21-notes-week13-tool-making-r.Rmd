@@ -1,0 +1,133 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+## Week 13 Notes
+### Created by Christopher Kinson
+
+
+***
+
+
+## Table of Contents
+
+- [Introduction to R Chapter 10](#introduction-to-r-chapter10)
+  - [Custom Functions AKA Tools](#functions)
+  - [Custom Binary Operators](#binary-operators)
+
+
+***
+
+## <a name="introduction-to-r-chapter10"></a>Introduction to Custom Data Management Tools
+
+Below, I introduce the idea of creating your own functions and data management tools. The bulk of this material is covered in STAT 385. One reference textbook for that course is [An Introduction to R. Venables, Smith and the R Core Team](https://cran.r-project.org/doc/manuals/r-release/R-intro.pdf). Another useful reference textbook for that course is [Hands-On Programming with R by G. Grolemund's](https://rstudio-education.github.io/hopr/)
+
+The crux of what you do as a programmer is create your own tools. These tools can greatly speed up data analysis, data wrangling, data visualization, modeling, etc. They speed up the processes because we can eliminate very specific redundant code, and utilize general flexible code that works for multiple uses and cases. 
+
+### <a name="functions"></a>Custom Functions AKA Tools
+
+R allows users to create their own functions (i.e. user-defined functions) AKA tools using the `function()`. User-defined functions can be created with 
+
+- \*arguments that may be named or unnamed; think of arguments as inputs 
+
+- expressions which are code that perform the actions; think of expressions as the body of the function
+
+- braces which wrap around the expressions
+
+- \*optional returned objects as outputs
+
+```
+newfunction <- function(namedarg=argument01){
+  expressions
+}
+```
+
+Using the function to see the results becomes:
+
+```
+newfunction(input)
+```
+
+Below, see the Figure 2.6 from G. Grolemund's Hands-On Programming with R that helps explain how functions are designed.
+
+![](https://rstudio-education.github.io/hopr/images/hopr_0106.png)
+
+Your custom functions can be complicated or simple. It will depend on the nature of what you want to build and your programming skill set. Here are some examples.
+
+1. A $t$-statistic for the two-sample case (found in the Introduction to R textbook)
+
+```{r}
+twosam <- function(y1, y2) {
+  n1 <- length(y1); n2 <- length(y2)
+  yb1 <- mean(y1); yb2 <- mean(y2)
+  s1 <- var(y1); s2 <- var(y2)
+  s <- ((n1-1)*s1 + (n2-1)*s2)/(n1+n2-2)
+  tst <- (yb1 - yb2)/sqrt(s*(1/n1 + 1/n2))
+  tst
+}
+twosam(rnorm(20),rnorm(20))
+```
+
+2. An $n$-dimensional correlation matrix with exchangeable correlation $\rho$
+
+```{r}
+exc <- function(n,rho){
+  mat <- array(rho,dim=c(n,n))
+  mat2 <- array(c(1:n,1:n),dim=c(n,2))
+  mat[mat2] <- 1 
+  mat
+}
+exc(5,0.5)
+```
+
+3. In STAT 385, we discussed card shuffling and the concept of randomization. Using the Uno deck of cards created as a dataset, we can create a function that shuffles the deck. This function is general because we supply the deck, and we do not require the function to use only the cards from those notes.
+
+```{r}
+cards_faces <- c(rep(c(0:9, 1:9, rep(c("Skip","Reverse","Draw+2"),2)), 4),rep(c("Wild","WildDraw+4"), each=4))
+cards_colors <- c(rep(c("red","blue","green","yellow"), each=25), rep("any",8))
+cards_points <- c(rep(c(0:9, 1:9, rep(20, 6)), 4), rep(50,8))
+cards_tibble <- tibble::tibble(face=cards_faces, color=cards_colors, point=cards_points)
+
+shuffle <- function(deck){
+  if(all(class(deck)!="data.frame")){
+    return("Not a data frame. Supply a data frame as input.")
+  }
+  else{
+    return(deck[sample(dim(deck)[1]),])
+  }
+}
+shuffle(cards_tibble)
+```
+
+**SN: Using the double colon notation `::`, we can call or reference a library for use with its particular functions. In this way, we don't have to use the `library()` function, but the package must be installed.**
+
+Pay close attention to the fact that objects created within the body of a function are not global/permanent objects in R's environment.
+
+```{r eval=FALSE}
+mat #this object doesn't exist
+```
+
+Functions create local/temporary objects that exist within the function and nowhere else. To your surprise, this is a good thing, because when global objects are referenced multiple times in a program. It may lead to confusion and lots of reviewing to find mistakes each time it's referenced. Read this https://www.learncpp.com/cpp-tutorial/why-global-variables-are-evil/ for more details.
+
+## <a name="binary-operators"></a>Custom Binary Operators
+
+Binary operators are special operators that take two arguments which are essentially one object on the left-hand-side and one object on the right-hand-side of the operator. We have seen at least one binary operator: the modulus `%%` when we wanted a vectorized way to identify if a number was prime or not.
+
+We can create user-defined binary operators with the `function()`, but we must name the object as `"%somethinghere%"`. Below is an example of a custom binary operator that identifies elements of the vectors that are not in common in both objects. This custom binary operator works much like the `setdiff()` function and is opposite of the `match()` function. The `match()` function and `%in%` binary operator are similar. `%in%` returns a logical vector of which values of the left-hand-side object appear in the right-hand-side object. The `match()` function goes an extra step and returns the positions of (first) matches of its first argument in its second.
+
+```{r}
+1:10 %in% 5:10
+match(1:10,5:10)
+```
+
+
+```{r}
+"%out%" <- function(LHS, RHS){
+  unique(LHS[is.na(RHS[match(LHS, RHS)])])
+}
+1:10%out%5:10
+setdiff(1:10,5:10)
+```
+
+
+#### END OF NOTES

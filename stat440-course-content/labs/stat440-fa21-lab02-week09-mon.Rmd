@@ -1,0 +1,24 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week09 Lab02 Mon
+### Only the driver should submit this assignment into their individual student repo. Save the filename as lab02-week08-mon-netID.Rmd (or .ipynb for Python users). Then render this file to .html when completed. 
+#### Both .Rmd/.ipynb and .html files must be submitted by 11:00 am. Any lab submitted after 11:00 am will be deducted 1 point for being late.
+
+**#1** Think about the previous two weeks (your experiences, assignments, life). Using Markdown, describe in paragraph form (with at least 3 complete sentences) what was the most challenging part(s) about the labs and homework assignments, the most challenging part(s) about those weeks, and the thing(s) that made your weeks successful or unsuccessful.
+
+**#2** Convert the zoom transcript file https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/blob/master/data/zoom_transcript.vtt or Box data URL https://uofi.box.com/shared/static/9fi7g4kc9db009nla5abq25lp2o8lkqa.vtt into a .txt file and import it using a data URL (either GHE or Box account).
+
+**#3** Remove all numbers or digits from the data.
+
+**#4** How many speakers are present in the data?
+
+**#5** Get all words to be organized into a two-column matrix such that the column 1 represents the words and column 2 represents the length of the word. The words must be unique; i.e. no duplicate words allowed; "Person##" is not a word.
+
+**#6** Which words are the 10 most frequently appearing?
+
+**#7** Which words (excluding the following "the","you","me") are the 10 most frequently appearing?
+
+**#8** Which words are over the median length?
+
+**#9** Mutate the data (from **#5**) to add a column called "frequency" that measures how often each word appears in the original data. The resulting set of words must be unique; i.e. no duplicate words allowed; "Person##" is not a word.
+
+**#10** The data comes Zoom's auto-transcription service. Is Zoom good at auto-transcription? Use data management techniques to provide evidence of your answer.

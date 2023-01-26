@@ -1,0 +1,364 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+## Week 11 Notes
+### Created by Christopher Kinson
+
+
+***
+
+
+## Table of Contents
+
+- [Intro to SQL](#intro)
+- [Accessing and importing data](#accessing-and-importing-data)  
+- [Handling dates and times](#handling-dates-and-times) 
+- [Arranging data](#arranging-data)  
+  - [Organizing columns](#organizing)  
+  - [Sorting columns](#sorting)  
+- [Data Reduction](#data-reduction)  
+  - [Filtering rows](#filtering)  
+  - [Selecting columns](#selecting)  
+  - [Dropping missing values](#dropping)
+- [Data Expansion](#data-expansion)  
+  - [Renaming columns](#renaming)  
+  - [Mutating columns](#mutating)
+- [Conditional execution](#conditional-execution)  
+ 
+
+***
+
+
+## <a name="intro"></a>Intro to SQL
+
+SQL stands for structured query language and represents a sort of grammar of data management and wrangling. Some important grammar or translations are: database (collection of data files), table (e.g. a subset; a data frame), fields (columns), records (rows), query (any data wrangling task).
+
+The intention behind the language is to have a general method for handling data. SQL can be accessed in almost any platform and programming language including the two in this course (R and Python). There are some subtleties in SQL that make it distinct and different from how programming languages access and handle data. Although it is structured and general, SQL has many versions developed by different users and companies for their own specific purposes. In this course, we plan on using the most common SQL statements, clauses, and keywords to avoid tasks that are inoperable on the 2 programming languages. Below is a general form of a typical query.
+
+```
+SELECT object-item <, ...object-item> 
+FROM from-list 
+<WHERE sql-expression> 
+<GROUP BY object-item <, ...object-item >> 
+<HAVING sql-expression> 
+<ORDER BY order-by-item <DESC> <, ...order-by-item>>
+```
+
+The `SELECT` statement specifies which columns need to be in the resulting table once the query is complete. New variables may be created in the `SELECT` statement. 
+
+The `FROM` clause points the dataset (the source of the query). Usually, this dataset exists within the database.
+
+The `WHERE` clause is a way to select records based on conditions.
+
+The `GROUP BY` clause groups data for processing. It helps to remove duplicates when there is a unique identifier in the data. 
+
+The `HAVING` clause allows conditions to be placed on the groups for group processing. This clause is relevant when a `GROUP BY` clause exists.
+
+The `ORDER BY` clause is the way to arrange the data. The default behavior is sorting in ascending order.
+
+The order of these statements, clauses, and keywords matters and must be strictly followed. Meaning, a `WHERE` clause cannot appear before a `FROM` clause. Almost every query requires a `SELECT` statement.
+
+To begin using SQL in R, we need to install and call the **sqldf** package. Afterwards, it's a good idea to become familiar with the package (or library) using the help function `?sqldf` in R. 
+
+
+***
+
+
+## <a name="accessing-and-importing-data"></a>Accessing and importing data
+
+We won't use SQL to import data from a database. Instead, we will continue using the same tools to import data discussed in Week 02 Notes: `read_delim()` and `read_csv()`. After importing data, we can work with those assigned objects.
+
+Let's import the [Rental Inspection Grades Listing Data as comma-separated .csv - GHE](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv) or [Rental Inspection Grades Listing Data as comma-separated .csv - Box](https://uofi.box.com/shared/static/l9o50efbnemdnaxury4hg45cj8b2truu.csv).
+
+```{r}
+library(tidyverse)
+
+rentals <- read_csv("https://uofi.box.com/shared/static/l9o50efbnemdnaxury4hg45cj8b2truu.csv", 
+          col_types = cols(`Inspection Date` = col_date(format = "%m/%d/%Y"), 
+                           `Expiration Date` = col_date(format = "%m/%d/%Y")))
+
+str(rentals)
+```
+
+
+***
+
+
+## <a name="#handling-dates-and-times"></a>Handling dates and times
+
+In general, dates and times may be considered as numeric information. Thus we should recall the formatting dates and times in the Week 03 Notes. However, in SQL particularly, dates are handled more easily as character strings after they've been coerced from numeric back to character format. Thus, a good idea is to coerce dates to numeric (date) format then coerce back to character format using your programming language of choice (not using SQL). Afterwards, we can use those character strings and their format to perform an necessary subsetting much like the example below.
+
+```{r}
+library(sqldf)
+
+rentals$`Expiration Date` <- as.character(rentals$`Expiration Date`)
+rentals$`Inspection Date` <- as.character(rentals$`Inspection Date`)
+
+sqldf("
+SELECT * 
+FROM rentals
+WHERE `Inspection Date` = '2020-03-10'
+")
+```
+
+**Pay attention to how column names with spaces must be enclosed with the \` ticks. And how we begin and end the body of the sqldf() function with \" quotes.**
+
+
+***
+
+
+## <a name="arranging-data"></a>Arranging data
+
+Arranging a dataset involves organizing its columns and sorting the data by one or more of its columns. 
+
+### <a name="organizing"></a>Organizing columns
+
+By organizing the data we may want certain columns to appear as the first column, second column, etc. See edited image taken from [RStudio's dplyr cheat sheet](https://rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
+
+![](https://uofi.box.com/shared/static/sxh3cw9yyol3m3tlu8fhefw9ye1pjmwm.png)
+
+Using SQL, let's arrange the Rental Inspection Grades Listing Data such that:
+
+- the first column is Parcel Number  
+- the second column is Property Address  
+- the third column is Mappable Address  
+- the fourth column is Inspection Date  
+- the fifth column is Expiration Date  
+- the sixth column is License Status
+- the seventh column is Grade  
+
+```{r}
+sqldf("
+SELECT `Parcel Number`, `Property Address`, `Mappable Address`, `Inspection Date`, `Expiration Date`, `License Status`, Grade
+FROM rentals
+")
+```
+
+Remember that these are not permanent objects until we assign them.
+
+```{r}
+rentals2 <- sqldf("
+SELECT `Parcel Number`, `Property Address`, `Mappable Address`, `Inspection Date`, `Expiration Date`, `License Status`, Grade
+FROM rentals
+")
+
+sqldf("
+    SELECT `Parcel Number`, `Property Address`, `Mappable Address`, `Inspection Date`, `Expiration Date`, `License Status`, Grade
+    FROM rentals2")
+```
+
+
+### <a name="sorting"></a>Sorting columns
+
+Sorting data in SQL is done with `ORDER BY`. The default ordering is ascending. Now let's sort the `rentals2` data such that the Parcel Numbers are in ascending order.
+
+```{r}
+sqldf("
+SELECT *
+FROM rentals2
+ORDER BY `Parcel Number`
+")
+```
+
+If we want descending order, then we use the `DESC` keyword after the field name. We can also limit the amount of observations we want to show using the `LIMIT n` clause where $n$ is a number of records to be shown in the result. Let's sort the `rentals2` data such that the Grades are in descending order then Parcel Numbers are in ascending order and showing the resulting first 10 rows. 
+
+```{r}
+sqldf("
+SELECT `Parcel Number`, Grade
+FROM rentals2
+ORDER BY Grade DESC, `Parcel Number`
+LIMIT 10
+")
+```
+
+## <a name="data-reduction"></a>Data Reduction
+
+Data reduction tasks, from a data wrangling perspective, are done by data workers so often that they become second nature. In SQL, these are easily done with the clauses `WHERE` and `SELECT`.
+
+### <a name="filtering"></a>Filtering rows
+
+We can select rows or observations through conditions with the `WHERE` clause in SQL. Let's filter only the rows that have a grade of F.
+
+```{r}
+sqldf("
+      SELECT *
+      FROM rentals2
+      WHERE Grade='Class F'
+      ")
+```
+
+We can filter only the rows that have a grade of A or F (where the keyword `OR` means "or").
+
+```{r}
+sqldf("
+      SELECT *
+      FROM rentals2
+      WHERE Grade='Class F' OR Grade='Class A'
+      ")
+```
+
+We filter the rows corresponding to the a grade of A and expiration dates before the year 2021.
+
+```{r}
+sqldf("
+      SELECT *
+      FROM rentals2
+      WHERE Grade='Class A' AND `Expiration Date` < '2021-01-01'
+      ")
+```
+
+### <a name="selecting"></a>Selecting columns
+
+We can select certain columns using the `SELECT` clause. Selecting can be helpful when we don't need all of a dataset's original columns. Let's select only the Mappable Address column.
+
+```{r}
+sqldf("
+      SELECT `Mappable Address`
+      FROM rentals2
+      ")
+```
+
+De-selecting is not really allowed in SQL, but we can select all columns using `SELECT *`.
+ 
+```{r}
+sqldf("
+      SELECT *
+      FROM rentals2
+      ")
+```
+
+### <a name="dropping"></a>Dropping missing values
+
+Missing values are often represented as `NA` (not available), `NaN` (not a number), ".", or " " in data. Missing values are slightly different from null values and unknown values. A missing value could be unknown or NULL or an actual value that just never made it into the data frame. 
+
+Null values (`NULL`) are undefined values often used in R coding to create empty objects. 
+
+Unknown values are usually noted or marked as "unknown" in a dataset. Older data might note a value as "9999" or "99999" to represent an unknown value. Unknown values are not necessarily missing when they are represented as "unknown" or "9999" within a dataset.
+
+In SQL, we can identify missing values using `IS NULL` in the `WHERE` statement such as  `WHERE Name IS NULL`. Let's remove missing values from the Expiration Date column with the `NOT` keyword.
+
+```{r}
+sqldf("
+      SELECT `Expiration Date`
+      FROM rentals2
+      WHERE `Expiration Date` IS NOT NULL
+      ")
+```
+
+
+***
+
+
+## <a name="data-expansion"></a>Data expansion
+
+The methods in this section will be making the dataset larger in some way, usually by adding new columns of information.
+
+### <a name="renaming"></a>Renaming columns
+
+Renaming variables can be accomplished using `AS` keyword with the `SELECT` clause and serves as a convenient way to change a column's name without an assignment operator. We place the old name on the left side of `AS` and the new name on the right side.
+
+```{r}
+sqldf("
+      SELECT `Mappable Address` AS full_address
+      FROM rentals2
+      ")
+```
+
+### <a name="mutating"></a>Mutating columns
+
+The real power of data wrangling and to a larger extent, data science, is the ability to create columns of new information. Often, this new information is really just a function of existing information. But, usually that new information is what is needed for a later analysis. Recall that the work of data management and wrangling (read: STAT 440) is to do all the data work prior to an actual data analysis. 
+
+Below is a table of SQL operators for arithmetic and logicals (booleans).
+
+Operation or Function | SQL Syntax 
+---|---
+Addition | + 
+Subtraction | \- 
+Multiplication | \* 
+Division | \/ 
+Exponentiation | POWER() 
+Modulus | %
+Equal to (for comparison) | =
+Not Equal to | <>
+Greater than | > 
+Less than | < 
+Greater than or equal to | >= 
+Less than or equal to | <= 
+And | AND
+Or | OR
+Negation (aka Not) | NOT
+Square root | SQRT() 
+Absolute value | ABS() 
+Logarithm (natural) | LOG()
+Exponential | EXP() 
+Mean | AVG()
+Minimum | MIN()
+Maximum | MAX()
+
+Read the following for more information on SQL's operators and functions [SQL operators](https://www.w3schools.com/sql/sql_operators.asp) and [SQL functions](https://www.w3schools.com/sql/sql_ref_sqlserver.asp).
+
+Within the `SELECT` clause, we can create the new columns based on existing ones. Suppose we want to represent the Grades of the inspections as numbers and create a proportion from that new numeric grade. The math operator that's going to be useful is division `/`. The SQL special statement that we have not discussed yet is the `CASE`...`WHEN`...`THEN`...`ELSE` which will allow us to have results similar to the `ifelse()` function in R. To accomplish this we might do:
+
+```{r}
+rentals3 <- sqldf("
+      SELECT *,
+        CASE 
+          WHEN Grade='Class N' THEN 1
+          WHEN Grade='Class F' THEN 2
+          WHEN Grade='Class D' THEN 3
+          WHEN Grade='Class C' THEN 4
+          WHEN Grade='Class B' THEN 5
+          ELSE 6
+          END AS grade_numeric
+      FROM rentals2
+      ")
+
+sqldf("
+      SELECT grade_numeric/6.0 AS grade_prop
+      FROM rentals3
+      ")
+```
+
+That's quite powerful! 
+
+
+***
+
+
+### <a name="conditional-execution"></a>Conditional Execution
+
+SQL does allow for conditional execution in a form similar to `ifelse()` in R with `CASE`...`WHEN`...`THEN`...`ELSE`. This statement is part of the possibilities with the `SELECT` clause.
+
+```
+CASE
+    WHEN condition1 THEN result1
+    WHEN condition2 THEN result2
+    WHEN conditionN THEN resultN
+    ELSE result
+END;
+```
+
+See the example of using this with the rentals data above. It's the same below.
+
+```{r}
+rentals4 <- sqldf("
+      SELECT *,
+        CASE 
+          WHEN Grade='Class N' THEN 1
+          WHEN Grade='Class F' THEN 2
+          WHEN Grade='Class D' THEN 3
+          WHEN Grade='Class C' THEN 4
+          WHEN Grade='Class B' THEN 5
+          ELSE 6
+          END AS grade_numeric
+      FROM rentals2
+      ")
+
+sqldf("
+      SELECT grade_numeric/6.0 AS grade_prop
+      FROM rentals4
+      ")
+```
+
+#### END OF NOTES

@@ -1,0 +1,74 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week15 Lab03 Wed
+### Only the driver should submit this assignment into their individual student repo. Save the filename as lab03-week15-wed-netID.Rmd (or .ipynb for Python users). Then render this file to .html when completed. 
+#### Both .Rmd/.ipynb and .html files must be submitted by 11:00 am. Any lab submitted after 11:00 am will be deducted 1 point for being late.
+
+**#1** Using Markdown syntax, make a non-numbered list with the names of everyone at your station in all caps. Your name should appear in all lower case text.
+
+Answers will vary, but must be a proper non-numbered list with Passengers' names in all caps and Driver's name in all lower case.
+
+**#2** statement: **Data analysts** build internal products specifically for data such as data warehouses and automation processes .
+
+If the text in bold is the term that makes the statement true, then write TRUE below in all caps. If the text in bold is the term that makes the statement false, then write FALSE below in all caps and write the correct term in bold text in a new line under FALSE.
+
+TRUE
+
+**#3** Import the following dataset using a programming language and its corresponding data URL. Ensure the Date Reported and Time Reported columns get properly formatted to datetime and time formats, respectively. Read the data descriptions to help verify the import was successful.
+
+- University of Illinois Daily Crime Log and its GHE data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/daily-crime-log-data.csv or Box data URL https://uofi.box.com/shared/static/7uah46fdogn8gdc1zy06efuxsfpqif4g.csv
+
+- The dataset (.csv file) contains 462 legitimate observations and 8 columns. The observations are crimes reported in the University area within the last 60 days. Instructions for interpreting the data is in its [data key](https://police.illinois.edu/wp-content/uploads/2016/02/Crime-Log-Instructions.pdf). **Do not worry about getting the legitimate number of observations in this problem. This will get resolved in the next problem.**
+
+```{r}
+library(tidyverse)
+
+crime_reports_data <- read_csv("https://uofi.box.com/shared/static/7uah46fdogn8gdc1zy06efuxsfpqif4g.csv", 
+    col_types = cols(`Date reported` = col_date(format = "%m/%d/%Y"), 
+        `Time reported` = col_time(format = "%H:%M")))
+
+str(crime_reports_data)
+```
+
+**#4** Validate and clean the following errors that may be present in the data:
+
+errors | resolution |
+---|---|
+the column names appear within the data observations | remove those rows |
+Date occurred equals FALL 2021 | remove those rows and reformat the column to be date or datetime format |
+Time occurred equals UNKNOWN and reformat the column to be hms or datetime format | remove those rows |
+general location contains a forward slash | change forward slashes to the string ' AND ' such that there is a space before and after the word 'AND'
+crime descriptions for THEFT \$500 AND UNDER is equivalent to THEFT UNDER \$500 | make these two crime descriptions into one description called THEFT \$500 AND UNDER |
+disposition ADMIN CLOSED is equivalent to ADMIN. CLOSE | make these two dispositions into one disposition called ADMIN. CLOSED |
+disposition STUDENT DISC REFERRAL is equivalent to STUDENT DISCIPLINE REFERRAL | make these two dispositions into one disposition called STUDENT DISCIPLINE REFERRAL |
+
+**For the \$500, the backslash does not need to be included in the string manipulation.**
+
+```{r}
+gids <- !(str_detect(crime_reports_data$Incident, "Incident")|str_detect(crime_reports_data$`Date occurred`, "FALL 2021")|str_detect(crime_reports_data$`Time occurred`, "UNKNOWN"))
+crime_reports_data1 <- crime_reports_data[gids,]
+
+crime_reports_data2 <- crime_reports_data1 %>%
+  mutate(`Date occurred` = lubridate::mdy(`Date occurred`),
+         `Time occurred` = hms::as_hms(paste0(crime_reports_data1$`Time occurred`, ":00")),
+    `General Location`=str_replace_all(`General Location`, "\\/", " AND "),
+`Crime Description`=str_replace(`Crime Description`, "THEFT UNDER \\$500", "THEFT $500 AND UNDER"),
+Disposition=str_replace(Disposition, "ADMIN CLOSED|ADMIN\\. CLOSE", "ADMIN. CLOSED"),
+Disposition=str_replace(Disposition, "STUDENT DISC REFERRAL", "STUDENT DISCIPLINE REFERRAL"))
+
+str(crime_reports_data2)
+```
+
+**#5** Using the validated and cleaned data resulting from **Problem 4**, how many reported crimes involve drugs or alcohol and are not dispositioned as reported to other agency nor referred to other jurisdiction?
+
+By my count, there are 97 unique crime reports that involve drugs or alcohol and are not dispositioned as reported to other agency nor referred to other jurisdiction.
+
+```{r}
+table(tolower(crime_reports_data2$`Crime Description`))
+
+gids2 <- which(!is.na(str_extract(tolower(crime_reports_data2$`Crime Description`),"cannabis|syringe|possession w/intent to deliver|metham|alcohol|liquor|alcohol\\/")))
+
+crime_reports_data3 <- crime_reports_data2[gids2,]
+
+length(unique(filter(crime_reports_data3,Disposition!="REPORTED TO OTHER AGENCY")$Incident))
+```
+

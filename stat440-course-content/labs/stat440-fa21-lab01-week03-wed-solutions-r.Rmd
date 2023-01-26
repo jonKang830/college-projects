@@ -1,0 +1,56 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week03 Lab01
+### Only the driver should submit this assignment into their individual student repo. Save the filename as lab01-week03-wed-netID.Rmd. Then render this file to .html when completed.
+
+**#1** Using Markdown syntax, make a numbered list with the first and last names of everyone at your station. Your name should appear in bold text.
+
+Answers will vary, but must be a proper list with Driver's name in bold text.
+
+**#2** How many lifelines are now given during the lab days?
+
+Originally 2 lifelines. Now, only one lifeline is given.
+
+**#3** Which of the following cases is the file name in bold **Homework01Kinson2**? 
+
+a. pascal case
+
+b. snake case
+
+c. camel case
+
+d. kebab case
+
+The case is a. pascal case.
+
+**#4** Import the Rental Inspection Grades Listing Data using one programming language software and the data URL https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv or Box data URLhttps://uofi.box.com/shared/static/l9o50efbnemdnaxury4hg45cj8b2truu.csv. Now, print the structure of the data. **This structure should match the data description below.** 
+
+  - The dataset (a .csv file) contains the 1730 rental properties in Urbana with 7 variables ("columns") per property which includes details about the parcel number, address, grade, inspection date, and more. The rental properties are inspected on a rotating basis and can receive a letter grade of A, B, C, D, F, and N. The best grade is A. The original source is the City of Urbana.
+
+```{r}
+library(tidyverse)
+rentals <- read_csv("https://uofi.box.com/shared/static/l9o50efbnemdnaxury4hg45cj8b2truu.csv")
+str(rentals)
+```
+
+**#5** (Handling dates and times, Arranging data) Using the Rental Inspection Grades Listings Data imported in Problem **#4**, ensure that the Inspection Date and Expiration Date columns are formatted as dates or datetimes; not character format.
+
+```{r}
+rentals$`Inspection Date` <- lubridate::mdy(rentals$`Inspection Date`)
+rentals$`Expiration Date` <- lubridate::mdy(rentals$`Expiration Date`)
+str(rentals)
+```
+
+**#6** Web scrape the Champaign County Assessor's [website](https://champaignil.devnetwedge.com/) to extract a property's Net Taxable Value in US Dollars. Do this for the last 10 properties in the dataset from Problem **#5** and print the resulting 10 rows.
+
+```{r}
+library(rvest)
+property_url <- paste0("https://champaignil.devnetwedge.com/parcel/view/",rentals$`Parcel Number`,"/2020")
+
+net_taxable <- rep(0, length(property_url))
+
+for (i in (length(property_url)-9):length(property_url)){ 
+  net_taxable[i] <- html_text(html_nodes(read_html(property_url[i]),"tr:nth-child(5) td:nth-child(1) .inner-value"),trim=TRUE)
+}
+
+tail(net_taxable, 10) #takes a long time if you attempt all 1730 parcels
+```

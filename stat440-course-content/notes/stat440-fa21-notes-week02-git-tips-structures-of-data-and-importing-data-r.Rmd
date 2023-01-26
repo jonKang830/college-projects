@@ -1,0 +1,282 @@
+---
+title: "STAT 440 Statistical Data Management - Fall 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 02 Notes
+### Created by Christopher Kinson
+
+
+***
+
+### Table of Contents
+
+- [Git and GHE tips](#git-and-ghe-tips)  
+  - [Tip 1. File names are important](#tip1)
+  - [Tip 2. File locations are important](#tip2)
+  - [Tip 3. Search online for resolving git troubles](#tip3)
+  - [Tip 4. Deleting your local remote almost always solves all git troubles](#tip4)
+  - [Tip 5. Clone a repo one time only](#tip5)
+  - [Tip 6. In GHE, a file is never really deleted](#tip6)
+  - [Tip 7. Merge conflicts are mostly avoidable, but easily resolvable](#tip7)
+  - [Tip 8. Git will try to inform you of what's wrong and how to resolve it](#tip8)
+- [Do you think about data?](#do-you-think-about-data)  
+- [Structures of data, delimiters, and file extensions](#structures-of-data-delimiters-and-file-extensions)  
+  - [Structured data](#structured-data)  
+  - [Semi-structured data](#semi-structured-data)  
+  - [Unstructured data](#unstructured-data)  
+- [Accessing and importing data](#accessing-and-importing-data)  
+  - [GHE Data URLs and Accessing Them](#ghe-data-urls)
+  - [Tab-separated structured data](#tab-separated-structured-data)  
+  - [Comma-separated structured data](#comma-separated-structured-data)  
+  - [JSON semi-structured data](#json-semi-structured-data)  
+  - [General structured data with RStudio Import Dataset wizard](#general-structured-data-with-rstudio-import-dataset-wizard)
+
+***
+
+
+## <a name="git-and-ghe-tips"></a>Git and GHE tips
+
+By now, you should be more comfortable retrieving files from GHE and submitting files to your individual student repo in GHE. This week, I want to give you some tips about using Git and GHE so that you can be more confident when you encounter any trouble using this version control software.
+
+### <a name="tip1"></a>Tip 1. File names are important
+
+When naming files and folders (i.e. directories), use names that are obvious and signify what the file or folder is or for what it is intended.
+
+Notice that all files and folders in this course have a hyphen in between words and numbers immediately following letters. This is a representation of kebab case written as kebab-case. There are other cases, such as camelCase, PascalCase, or snake_case. For file and folder names in this course, please stick to the kebab-case. 
+
+**Working with Git from the command line involves using the Terminal (or Git Bash or Shell or Command Prompt), which may not work properly if the name of your file or folder contains spaces.** 
+
+Within the environment of your programming language, kebab-case will likely be inappropriate. The hyphen is often interpreted as a minus sign which will operate subtraction on objects on either side of the sign. Thus, when naming objects within a programming language, you should use either camelCase, PascalCase, or snake_case. Just be sure to be consistent and stick to one case.
+
+
+### <a name="tip2"></a>Tip 2. File locations are important
+
+I assume that you know your local machine (i.e. your computer) better than I do. I do not know where you store your files and in what folder those files belong. It is extremely important that you know. You need to know how to access files and folders on your machine. In the notes of Week 1, I explicitly placed the files and folders beginning on the Desktop. Most computers have a Desktop folder and that's why I gave those instructions. If you choose to put files in a location not mentioned in the notes, then you must be able to find those files if you ever run into trouble with Git in this course.
+
+### <a name="tip3"></a>Tip 3. Search online for resolving git troubles
+
+When ever you do run into trouble using Git (from the command line or using RStudio), I advise searching online for the exact error your machine is giving you. Usually an error appears with an error number or a note explaining the error. I suggest you type that number or that note directly into your Internet browser's search bar and add the word "git". That should point you to abundant resources for people who have the same trouble that you currently have. **It's highly unlikely that you are the first person ever to encounter that specific trouble with Git.**
+
+Of course, you can post the issue in the Issues board of the **stat440-fa21-course-content** repo at https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/issues. Hopefully a fellow classmate or the course staff can assist you. You'll find that certain questions about Git and GHE trouble have already been asked and/or answered there. **Please don't feel embarrassed about asking a question in the Issues. It's one of the best ways to show that you care about your education and that you want to learn more.**
+
+Jennifer Bryan et al have organized some of the most common troubles with R, RStudio and Git. Please read their Happy Git with R Chapter 14 https://happygitwithr.com/troubleshooting.html for resolutions.
+
+### <a name="tip4"></a>Tip 4. Deleting your local remote almost always solves all git troubles
+
+But it means that you will need to clone a repo over again. And it means that any progress you may have stored locally, could be lost. To avoid losing progress, on a homework assignment for example, move the problematic local remote folder to another directory. For example if you're struggling with submitting files to your individual student repo, then move the folder named as your netID from the "Desktop" to "Documents". Then clone your individual student repo again (placing the netID folder within the Desktop). Now place the files you were working on inside of this netID folder. Then try committing and pushing the files to your repo.
+
+### <a name="tip5"></a>Tip 5. Clone a repo one time only
+
+Only clone your repo one time on your local machine. Do not have multiples of the same remote repo (e.g. "netID") on the same computer. Doing this will make your life more difficult than it needs to be. If you have multiples of the same remote on the same machine, then delete all but one of these repos.
+
+### <a name="tip6"></a>Tip 6. In GHE, a file is never really deleted
+
+This is one example of the power of version control. We can go into the history of any repo and of any file by clicking on "History" and clicking on the file we are interested in. See images below.
+
+![](https://uofi.box.com/shared/static/82vsyd7sqmtcy65fiubvuahccfb5yjw2.png)
+![](https://uofi.box.com/shared/static/22pk3ti1y5urv4f00906hqlz1zmea0ev.png)
+
+Then we can do something truly amazing! We can "travel back in time" to before the file was deleted and download that version of the file. In the image below, notice that when we travel back in time, the branch is not the master, but a particular commit ID. 
+
+![](https://uofi.box.com/shared/static/6s5o8bp8f121wefxp7lfwn39b285z0e2.png)
+
+To come back to the present time, simply click on the **stat440-fa21-course-content** repo link at the top of the page.
+
+You can do something similar using Git from the command line. See [Prof. Eck's Terminal Tricks](https://uofi.box.com/shared/static/5aupwf74o812ww33xymjc8h43fu92gco.html) for more details. 
+
+
+### <a name="tip7"></a>Tip 7. Merge conflicts are mostly avoidable, but easily resolvable
+
+Recall from Week 1 notes, merge conflicts are unresolved differences in file versions when two separate branches have made edits to the same line in a file, or when a file has been deleted in one branch but edited in the other. 
+
+Merge conflicts are mostly avoidable by making sure you pull a repo before you begin committing and pushing files to that repo.
+
+Merge conflicts can be easily solvable by manually editing the problem file and then merging and re-committing/pushing.
+
+Merge conflicts do happen, but they mostly happen when bigger collaborations are taking place.
+
+### <a name="tip8"></a>Tip 8. Git will try to inform you of what's wrong and how to resolve it
+
+Some of you may run into trouble with authentication because git does not 'know' you. See the image below for a common error about authentication.
+
+![](https://uofi.box.com/shared/static/ohzi33a5nzdy1h9tuy27j9kckknbvz46.png)
+
+The image shows us two things: 
+
+1. This student receives a fatal error where git explains that it cannot auto-detect the student's user name
+
+2. To resolve the issue, git tells the student to run two lines of code from the command line.
+
+- `git config --global user.email "netID@illinois.edu"`
+- `git config --glbal user.name "netID"`
+
+Another common error is related to students attempting to clone a single repo in a location where that repo already exists. Git will not allow for  duplicate repos in the same location. See the image below for the error message.
+
+![](https://uofi.box.com/shared/static/3zzkokfz2emwhmmpcmljrt9ouctrdshf.png)
+
+To resolve it, simply clone in a new location. Preferably not within another repo; doing so will cause more problems.
+
+The takeaway is: read the error messages carefully, as they contain clues for troubleshooting.
+
+
+***
+
+
+## <a name="do-you-think-about-data"></a>Do you think about data?
+
+Do you think about data?
+
+One very important and omnipresent idea for this course is to think about data. Think about how it came to be, the ways in which it can exist (or be), what was or is its plan, what do we want to do with it, and how we envision or plan for it to be used later. Data is information at its most simplest definition. This information or data can be collected and stored in various ways. Data can be a table of values, a book, a picture, a tweet, a time stamp, a tool, and so many other things.
+
+Data sets, as we often imagine, are organized tabular forms of information with fields or columns and observations or rows. Here's a screenshot of the Rental Inspection Grades Listing Data:
+
+![](https://uofi.box.com/shared/static/c624d7y38ugfjoczkjyfublln3ni95h1.png)
+
+Did you consider that the image itself is also a data set? It contains information about its size, contents, date created, date modified, file type, and other information.
+
+What are some uncommon or not so obvious data sets that you have seen, noticed, or worked with?
+
+Below I discuss other forms and structures of data we may need to deal with.
+
+
+***
+
+
+## <a name="structures-of-data-delimiters-and-file-extensions"></a>Structures of data, delimiters, and file extensions  
+
+One of the first things we do as data engineers is to see, touch, and feel a dataset. Accessing and importing involves knowing a little bit about the data beforehand such as how the data is structured and organized, the number of records and fields, where the records begin, and the presence of delimiters. Data may be organized and delimited, and it might be helpful to check that the data we imported honors that organization. One way to do that is to check the descriptor portion of the data (e.g. the structure of the data with `str()` - showing the first few observations and object types of each column). The descriptor portion might also be known as the data contents, data structure, or data summary.
+
+### <a name="structured-data"></a>Structured data
+
+Structured data sets are simply files with records (as rows) and fields (as columns). We may interchange the word "records" with "observations" or "subjects", while we may interchange "fields" with "variables." The fields are often organized in a particular way either with delimiters or a specific width. Most data sets that you deal with in the STAT major are structured data.
+
+Delimiters are specific characters used to separate fields of information such as commas, colons, spaces, tabs, and even pipes. In Europe, semi-colon is a typical delimiter.
+
+When information is set to a specific or fixed width, fields can essentially be counted by the eye and are not required to be fixed for all columns; only that each column has its own fixed width.
+
+These structured data sets are usually saved (or named) with a file extension, and the file extension serves as a clue for the way the file is delimited or organized. **However, a file name can have no extensions or even multiple extensions such as .nb.html and .tar.gz.**
+
+Below is a table of common file formats, delimiters, and extensions. What's represented here are not strict rules.
+
+Format | Delimiter | Extension
+---|---|---
+comma-separated | \, | .csv
+tab-delimited or tab-separated | \\t | .txt or .tsv
+fixed-width | field width | .dat or .txt
+delimited or delimiter-separated | \| or \: or \; | .txt or .csv or .dat
+
+In addition to the descriptor portion, we might just want to see the raw data by printing it out. Checking both the printout and the descriptor portion can provide a quick verification that the data is imported successfully (assuming no processing or syntax errors have been detected).
+
+Below are links to the Rental Inspection Grades Listing Data in various formats, delimiters, and extensions.
+
+- [Rental Inspection Grades Listing Data as comma-separated .csv](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv)
+
+- [Rental Inspection Grades Listing Data as comma-separated .txt](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data02.txt)  
+
+- [Rental Inspection Grades Listing Data as tab-separated .txt](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data03.txt)  
+
+- [Rental Inspection Grades Listing Data as tab-separated .csv](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data04.csv)  
+
+Do you notice any pattern to the structure within the files linked above?
+
+```{r}
+library(tidyverse)
+rental <- read_delim("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data04.csv?token=AAABJGYPMY2I6OZWWBIU7ETBJOGCQ", 
+    "\t", escape_double = FALSE, trim_ws = TRUE)
+```
+
+
+### <a name="semi-structured-data"></a>Semi-structured data
+Semi-structured data may be files that are organized with tags or attributes but the information is in human-readable text; giving rise to its "semi-structured" name. Some common examples of semi-structured data are stored in JSON, GeoJSON, xml, and xlsx. These file formats are quite popular for web development and often created for communicating between the web and applications. Due to the semi-structure, accessing and importing these files may require special packages and tools inside beyond base R.
+
+Below is a link to the Rental Inspection Grades Listing Data as a .JSON.
+- [Rental Inspection Grades Listing Data as .JSON](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data05.json)
+
+Do you notice any pattern to the semi-structure within the the file linked above?
+
+### <a name="unstructured-data"></a>Unstructured data
+In text - when we think of documents, papers, journals, books - we think of the writing as structured with an introduction, supporting paragraph, conclusion, summary. Also, we think of the writing in text as being well-organized with a logical flow of ideas, correct punctuation, and limited spelling and grammatical errors. These are true of well-written text in paper or digital copy. But imagine this book or article existing as a dataset. How would you organize it? Would there be records and fields? What would the main information consist of? Any delimiters?
+
+These questions are not easy to answer and are equally difficult for a computer to figure out. Yet, text is so readily available for analysis that new approaches in text mining and natural language processing are ripe for the taking.
+
+Unstructured data is the human readable text that has been stored in a file such as .txt or .pdf. 
+
+Typically, we can create a structure that is more friendly and organized for computers to handle. But how we do that does not follow widely accepted rules. For example, we could set the records (i.e. rows) as the different texts or documents (speeches, emails, tweets, articles) in plain text format. If there are any fields (i.e. columns) included in the text, then they may be the document source, author, ID of the document, published date, etc. The result of such a file might now be considered structured. Another example of adding structure to text is a term-document matrix, where each row is a new unique term and each column is a new document. Ultimately, structuring an unstructured dataset depends on the kind of data analysis.
+
+How might you organize the text in the "mappable address" column of the Rental Inspection Grades Listing Data as comma-separated .csv?
+
+
+***
+
+
+## <a name="accessing-and-importing-data"></a>Accessing and importing data
+
+The bulk of datasets we encounter as data workers is external from our software or programming language. External data can be imported so long as we know the location and have public access to that location.
+
+***Make sure your version of R is up-to-date!***
+
+There are several ways to access and import external data but we'll focus on three: `read_delim()` and `read_csv()` using the **tidyverse** package and `fromJSON()` using the **jsonlite** package. The advantages of **readr**'s importing (e.g. `read_csv()`) over R's base importing (e.g. `read.csv()`) are: much faster importing, much larger datasets for importing, and more simplified objects, i.e. tibbles.
+
+### <a name="ghe-data-urls"></a>GHE Data URLs and Accessing Them
+
+Datasets in this course are located within the **data** folder of the stat440-fa21-course-content repo. These datasets will have a GHE URL  associated with each one. Pasting the GHE URL in your browser (and pressing ENTER for windows or EXECUTE for macs) will create a newly tokenized URL to access that data file. That new tokenized URL is the one you need for importing the data in your programming language. The tokenized URL will look something like: https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/file-name.extension?token=RANDOMCHARACTERSTRING. Each student's token will be different. After importing the data into your programming language, you will not need the token-specific URL any more. This token is temporary, and you may need a new token when knitting your notes, homework assignments, midterm, final exam, etc. Which is to say that if you were working on your homework on day01, for example, then on day03 you may need to paste the GHE URL into your browser to get a new tokenized URL to get updated results in your homework prior to submitting.
+
+### <a name="tab-separated-structured-data"></a>Tab-separated structured data 
+
+The `read_delim()` is only one function for importing data with tabs as delimiters. We usually need to supply the file location and the separator. 
+
+Let's read in the [Rental Inspection Grades Listing Data as tab-separated .txt](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data03.txt)
+
+```{r}
+library(tidyverse)
+urbanaRentalsTAB <- read_delim("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data03.txt?token=AAABJG3EBK74COZLY3FER7DBJOGEE", delim="\t")
+str(urbanaRentalsTAB)
+```
+
+### <a name="comma-separated-structured-data"></a>Comma-separated structured data
+
+The `read_csv()` function is only one function for importing data with commas as delimiters. It has the same functionality as `read_delim` but assumes the default delimiter is comma. Typically, we only need to supply the file location. 
+
+Let's read in the [Rental Inspection Grades Listing Data as comma-separated .csv](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data01.csv)
+
+```{r}
+urbanaRentalsCSV <- readr::read_csv("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data01.csv?token=AAABJG22RPXLABPUSF6WLUDBJOGFK")
+str(urbanaRentalsCSV)
+```
+
+### <a name="json-semi-structured-data"></a>JSON semi-structured data
+
+The `fromJSON()` is only one function for importing JSON data. Typically, we only need to supply the file location. But sometimes, the resulting data is not exactly the data frame that we want.
+
+Using `fromJSON()` on the [Rental Inspection Grades Listing Data as .JSON](https://github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/raw/master/data/rental-inspections-grades-data05.json) returns 
+
+```{r}
+library(jsonlite)
+urbanaRentalsJSON <- fromJSON("https://raw.github-dev.cs.illinois.edu/stat440-fa21/stat440-fa21-course-content/master/data/rental-inspections-grades-data05.json?token=AAABJG5QWWT5LFJK5JDBFDTBJOGGQ")
+str(urbanaRentalsJSON)
+```
+
+### <a name="general-structured-data-with-rstudio-import-dataset-wizard"></a>General structured data with RStudio Import Dataset wizard
+
+One final aspect of importing data with `readr` is the idea of importing the data through RStudio's "Import Dataset" wizard (menus, not purely from code). Importing in this way allows us to control how each column should be formatted, how specific we need the parameters of importing to be, and the source of the data. In other words, we can use the wizard to do any specific coercion or formatting at the time of importing (handling dates and times, coercing character columns to numeric, etc.)
+
+Here's a procedure for using RStudio's "Import Dataset" wizard:
+
+- Go to File > Import Dataset > From Text (readr).
+
+![](https://uofi.box.com/shared/static/ct3fyv9zz2vngozxauyy22tezqurxdyc.png)
+
+- Paste the data file location in the File/URL box.
+
+![](https://uofi.box.com/shared/static/keeflyqia6r60ougu1jsfjj3jp22a3wg.png)
+
+- Look at your Data Preview and click on any columns that need re-formatting.
+
+- Once satisfied with the Data Preview, copy the code in the Code Editor box and paste it into your code chunk.
+
+#### END OF NOTES

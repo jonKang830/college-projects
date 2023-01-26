@@ -1,0 +1,50 @@
+# STAT 440 Statistical Data Management - Fall 2021
+## Week01 Practice Lab00
+
+***Only the driver should submit this problem into their individual student repo. Save the filename as lab00-week01-fri-netID.Rmd.***
+
+**#1** Using Markdown syntax, make a numbered list with the first and last names of everyone at your station. Your name should appear in bold text.
+
+Answers will vary, but driver's name must be in bold text.
+
+1. **Chris Kinson**
+
+2. Other Teammate
+
+
+**#2** Who are the TAs? Write the names of the TAs as an unordered list.
+
+- Jaideep Mahajan
+
+- Jim (or Yici) Yan
+
+**#3** On Monday, the Instructor mentioned two things about himself besides his name. What are those two things?
+
+Prof. Kinson deejays and plays instruments including the trumpet.
+
+**#4** Consider the information in the image below and the image itself as a data set. Make 2 Markdown lists: one list contains 3 things you observe about the data set, and the other list contains 3 questions about the data set (i.e. things you want to know about the data). 
+
+![pic01](https://uofi.box.com/shared/static/sr0okcjrb7uw9lintsaxocrkpvy7ko8t.jpg)
+
+Answers will vary, but must be two lists (ordered or unordered). For example:
+
+List1
+
+- Data appears to be a word find puzzle.  
+- All words appear to be found.  
+- The puzzle is on page 59.  
+
+List2
+
+- Why are there arrows or rays adjacent to the words?  
+- Why are the words that are in the puzzle not completely circled?  
+- Are there more words within the puzzle beyond the words that are supposed to be found?  
+
+**#5** At your station, there is a puzzle. Solve and complete the puzzle and take a picture of the finished puzzle. Using Markdown syntax, include the picture (using a hyperlink) as the solution to this problem.
+
+Pictures will vary but must be linked using Markdown syntax such as 
+
+![](https://raw.github-dev.cs.illinois.edu/stat440-fa21/kinson2/master/outdoors-img.jpg?token=AAABJG6Y2IN4B6KSR7E67IDBMWSXG)
+
+***Only the driver should submit this problem into their individual student repo. Save the filename as lab00-week01-fri-netID.Rmd.***
+
