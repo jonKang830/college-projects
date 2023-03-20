@@ -1,3 +1,7 @@
 # college-projects
 
-Includes notable projects from college courses and extracurricular activities.
+Repository containing notable projects from college courses and extracurricular activities.
+
+## Freedom and Prosperity
+
+## URES - Heat Waves in Illinois
